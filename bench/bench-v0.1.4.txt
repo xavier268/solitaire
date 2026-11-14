@@ -1,0 +1,49 @@
+# solitaire version : 0.1.4
+# date              : 2026-11-14 12:35:12 +01:00
+# git               : 8e9b210+dirty
+# machine           : DESKTOP-LPJQLRP
+# os/arch           : windows/amd64
+# os                : Microsoft Windows [version 10.0.26300.9974]
+# cpu logiques      : 16 (GOMAXPROCS=16)
+# ram               : 31.7 Go
+# go                : go1.27.4
+#
+goos: windows
+goarch: amd64
+pkg: github.com/xavier268/solitaire
+cpu: Intel(R) Core(TM) i7-10700 CPU @ 2.90GHz
+BenchmarkSolveEnglishCross-16      	     850	   1403130 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSolveEnglishCross-16      	     882	   1350858 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSolveEnglishCross-16      	     883	   1357466 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSolveEnglishCross-16      	     883	   1366001 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSolveEnglishCross-16      	     882	   1391938 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSolveEnglishCross-16      	     884	   1423387 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSolveEnglishCross-16      	     891	   1371671 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSolveEnglishCross-16      	     888	   1347760 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSolveEnglishCross-16      	     889	   1363301 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSolveEnglishCross-16      	     891	   1347963 ns/op	       0 B/op	       0 allocs/op
+BenchmarkNewGameEnglishCross-16    	 1000000	      1271 ns/op	    3456 B/op	       2 allocs/op
+BenchmarkNewGameEnglishCross-16    	 1000000	      1053 ns/op	    3456 B/op	       2 allocs/op
+BenchmarkNewGameEnglishCross-16    	 1249398	      1002 ns/op	    3456 B/op	       2 allocs/op
+BenchmarkNewGameEnglishCross-16    	 1000000	      1046 ns/op	    3456 B/op	       2 allocs/op
+BenchmarkNewGameEnglishCross-16    	 1212406	       982.7 ns/op	    3456 B/op	       2 allocs/op
+BenchmarkNewGameEnglishCross-16    	 1000000	      1215 ns/op	    3456 B/op	       2 allocs/op
+BenchmarkNewGameEnglishCross-16    	 1212987	       982.0 ns/op	    3456 B/op	       2 allocs/op
+BenchmarkNewGameEnglishCross-16    	 1228796	       969.2 ns/op	    3456 B/op	       2 allocs/op
+BenchmarkNewGameEnglishCross-16    	 1213542	      1007 ns/op	    3456 B/op	       2 allocs/op
+BenchmarkNewGameEnglishCross-16    	 1224454	       983.0 ns/op	    3456 B/op	       2 allocs/op
+BenchmarkNewGameEuropean-16        	 1000000	      1274 ns/op	    4384 B/op	       2 allocs/op
+BenchmarkNewGameEuropean-16        	 1000000	      1390 ns/op	    4384 B/op	       2 allocs/op
+BenchmarkNewGameEuropean-16        	  991981	      1435 ns/op	    4384 B/op	       2 allocs/op
+BenchmarkNewGameEuropean-16        	  958437	      1256 ns/op	    4384 B/op	       2 allocs/op
+BenchmarkNewGameEuropean-16        	  994950	      1399 ns/op	    4384 B/op	       2 allocs/op
+BenchmarkNewGameEuropean-16        	  952819	      1315 ns/op	    4384 B/op	       2 allocs/op
+BenchmarkNewGameEuropean-16        	  862285	      1297 ns/op	    4384 B/op	       2 allocs/op
+BenchmarkNewGameEuropean-16        	  925975	      1330 ns/op	    4384 B/op	       2 allocs/op
+BenchmarkNewGameEuropean-16        	  978496	      1304 ns/op	    4384 B/op	       2 allocs/op
+BenchmarkNewGameEuropean-16        	  898147	      1402 ns/op	    4384 B/op	       2 allocs/op
+PASS
+ok  	github.com/xavier268/solitaire	37.779s
+?   	github.com/xavier268/solitaire/cmd/benchtable	[no test files]
+?   	github.com/xavier268/solitaire/cmd/sysinfo	[no test files]
+?   	github.com/xavier268/solitaire/cmd/version	[no test files]

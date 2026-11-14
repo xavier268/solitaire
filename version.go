@@ -38,11 +38,27 @@ package solitaire
 //   - Plateau européen : le départ avec le trou au centre est INSOLUBLE (Bergholt), la recherche de
 //     la v0.1.2 ne pouvait donc jamais finir. START_EUROPEAN a maintenant le trou en d3 (HOLE_EUROPEAN),
 //     avec une solution connue en 35 coups (dernière bille en g5). CENTER_EUROPEAN est conservé.
-//   - NewGame est un peu plus lent (calcul des parités) : ≈ 1,0 µs (croix) et ≈ 1,4 µs (européen),
-//     mesures ponctuelles à confirmer par task bench. Solve est inchangée.
+//   - Coût de la règle de trois dans NewGame : négligeable (bench/bench-v0.1.3.txt) : ≈ 0,96 µs (croix)
+//     et ≈ 1,26 µs (européen), comme en v0.1.2. Solve est inchangée (≈ 474 ms).
 //   - La résolution du plateau européen par le DFS brute force est toujours trop longue (plus de 90 s) :
 //     son benchmark est désactivé par défaut (BENCH_EUROPEAN_SOLVE=1 pour l'activer).
-//     Piste suivante : mémoriser les positions déjà perdantes (une recherche avec mémoire trouve la
-//     solution européenne en 0,1 s).
+//     Piste suivante (réalisée en v0.1.4) : mémoriser les positions déjà perdantes.
 
-const VERSION = "0.1.3"
+// v0.1.4 : mémorisation des impasses.
+//   - Game.dead : map des positions dont toutes les branches ont échoué, utilisée par dfs et dfsAnyEnd
+//     pour ne jamais explorer deux fois la même position (les coups commutent : la même position
+//     est atteignable par un très grand nombre de chemins).
+//   - La map est allouée une seule fois (à la première recherche), puis vidée par clear() à chaque
+//     recherche suivante en conservant sa mémoire : 0 allocation après la première résolution.
+//     Sa taille est bornée par maxDeadPositions (4 194 304 positions, ≈ 100 Mo) ; au-delà, les nouvelles
+//     impasses ne sont plus mémorisées (la recherche reste correcte, mais plus lente).
+//   - Résolution de la croix anglaise : ≈ 474 ms -> ≈ 1,36 ms (−99,7 %, environ 350 fois plus rapide),
+//     toujours 0 allocation par résolution. NewGame inchangée (≈ 1,0 µs croix, ≈ 1,3 µs européen).
+//   - Le benchmark de la croix fait une première résolution hors mesure (création de la map).
+//   - Test TestDeadMapAllocatedOnce : la map n'est créée qu'une fois et réutilisée.
+//   - Plateau européen (trou en d3) : malgré la mémorisation, la recherche avec l'ordre de coups fixe
+//     ne termine pas en 100 s (une recherche à ordre de coups aléatoire en trouve une en 0,1 s) ;
+//     son benchmark reste désactivé par défaut. Pistes : ordre de coups aléatoire avec redémarrages
+//     et budget de nœuds, ou meilleure heuristique d'ordre.
+
+const VERSION = "0.1.4"
