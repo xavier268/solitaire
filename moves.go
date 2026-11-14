@@ -3,6 +3,7 @@ package solitaire
 import (
 	"fmt"
 	"math/bits"
+	"slices"
 )
 
 type Move struct {
@@ -75,4 +76,35 @@ func (mask Position) AllMoves() []Move {
 		}
 	}
 	return moves
+}
+
+// SortMoves trie les moves en place par distance décroissante entre le point de départ (from) du move
+// et le centre (barycentre) de la position cible : les moves les plus éloignés du centre sont en tête,
+// donc essayés en premier par la recherche.
+// Tri stable (à distance égale, l'ordre initial est conservé, donc le résultat est déterministe).
+// Aucune allocation : les distances sont recalculées dans le comparateur (entiers uniquement).
+// Si target est vide, l'ordre est inchangé.
+func SortMoves(moves []Move, target Position) {
+	n := bits.OnesCount64(uint64(target))
+	if n == 0 {
+		return
+	}
+
+	// Barycentre = (sumL/n, sumC/n). On évite les flottants en multipliant par n :
+	// dist²·n² = (n·l - sumL)² + (n·c - sumC)²
+	var sumL, sumC int
+	for p := target; p != 0; p &= p - 1 {
+		i := bits.TrailingZeros64(uint64(p))
+		sumL += i / 8
+		sumC += i % 8
+	}
+	dist := func(pt Point) int {
+		dl := n*int(pt.l) - sumL
+		dc := n*int(pt.c) - sumC
+		return dl*dl + dc*dc
+	}
+
+	slices.SortStableFunc(moves, func(a, b Move) int {
+		return dist(b.from) - dist(a.from) // décroissant
+	})
 }

@@ -1,6 +1,10 @@
 package solitaire
 
-import "testing"
+import (
+	"math/rand/v2"
+	"os"
+	"testing"
+)
 
 func TestNewGame(t *testing.T) {
 	// Solitaire anglais classique : départ = croix sans le centre, arrivée = seulement le centre.
@@ -78,9 +82,9 @@ func TestSolveSimple(t *testing.T) {
 }
 
 func TestSolveImpossible(t *testing.T) {
-	// Cible inatteignable : pion en (3,4) alors que le départ ne permet que d'aller en (3,5).
-	mask := Bit(3, 3) | Bit(3, 4) | Bit(3, 5)
-	g, err := NewGame(mask, Bit(3, 3)|Bit(3, 4), Bit(3, 4))
+	// Cible que la règle de trois ne rejette pas (parités compatibles) mais qui est inatteignable :
+	// deux pions isolés, sans aucun coup possible. C'est donc la recherche, et non NewGame, qui échoue.
+	g, err := NewGame(MASK_5x5, Bit(0, 0)|Bit(4, 3), Bit(2, 0))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -130,6 +134,166 @@ func BenchmarkNewGameEnglishCross(b *testing.B) {
 	for b.Loop() {
 		if _, err := NewGame(MASK_ENGLISHCROSS, START_ENGLISHCROSS, CENTER_ENGLISHCROSS); err != nil {
 			b.Fatal(err)
+		}
+	}
+}
+
+func TestSolveAnyEnd(t *testing.T) {
+	mask := Bit(3, 3) | Bit(3, 4) | Bit(3, 5)
+
+	// Cible 0 : un seul pion restant, n'importe où.
+	g, err := NewGame(mask, Bit(3, 3)|Bit(3, 4), 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cap(g.solution) != 1 {
+		t.Errorf("cap(solution) = %d, attendu 1 (2 pions -> 1 pion)", cap(g.solution))
+	}
+	if err := g.SolveAnyEnd(); err != nil {
+		t.Fatalf("solution attendue : %v", err)
+	}
+	if len(g.solution) != 1 || g.solution[0] != Bit(3, 5) {
+		t.Errorf("solution = %v, attendu un seul coup vers (3,5)", g.solution)
+	}
+
+	// Cible non nulle : même comportement que Solve (cible exacte). Ici la cible est atteignable.
+	g, err = NewGame(mask, Bit(3, 3)|Bit(3, 4), Bit(3, 5))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := g.SolveAnyEnd(); err != nil || len(g.solution) != 1 {
+		t.Errorf("cible exacte atteignable : résolu en 1 coup attendu (err=%v, len=%d)", err, len(g.solution))
+	}
+
+	// Aucun move possible et plus d'un pion : pas de solution, mais la règle de trois ne le voit pas
+	// (une case finale compatible existe), donc NewGame accepte et c'est la recherche qui échoue.
+	g, err = NewGame(MASK_5x5, Bit(0, 0)|Bit(4, 3), 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := g.SolveAnyEnd(); err == nil {
+		t.Error("deux pions isolés : erreur attendue")
+	}
+	if len(g.solution) != 0 {
+		t.Errorf("solution doit être vide après échec, len=%d", len(g.solution))
+	}
+
+	// Un seul pion au départ : déjà résolu, sans aucun coup.
+	g, err = NewGame(mask, Bit(3, 3), 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := g.SolveAnyEnd(); err != nil || len(g.solution) != 0 {
+		t.Errorf("un seul pion : résolu sans coup attendu (err=%v, len=%d)", err, len(g.solution))
+	}
+}
+
+// BenchmarkNewGameEuropean mesure la création du jeu européen (calcul de validMoves compris).
+func BenchmarkNewGameEuropean(b *testing.B) {
+	b.ReportAllocs()
+	for b.Loop() {
+		if _, err := NewGame(MASK_EUROPEAN, START_EUROPEAN, 0); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+// BenchmarkSolveEuropean mesure la résolution du plateau européen avec SolveAnyEnd
+// (cible 0 : une seule bille restante, n'importe où).
+func BenchmarkSolveEuropean(b *testing.B) {
+	// Une solution existe (trou en d3), mais le DFS brute force sans élagage ni mémoire ne la trouve pas
+	// en un temps raisonnable (plus de 90 s mesurées) : désactivé par défaut pour ne pas bloquer `task bench`.
+	// Activer avec la variable d'environnement BENCH_EUROPEAN_SOLVE=1.
+	if os.Getenv("BENCH_EUROPEAN_SOLVE") == "" {
+		b.Skip("résolution européenne trop longue sans élagage ; définir BENCH_EUROPEAN_SOLVE=1")
+	}
+
+	g, err := NewGame(MASK_EUROPEAN, START_EUROPEAN, 0)
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		if err := g.SolveAnyEnd(); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func TestVerifyRuleOfThree(t *testing.T) {
+	tests := []struct {
+		name             string
+		mask, start, end Position
+		wantErr          bool
+	}{
+		// Solubles (la règle ne doit jamais rejeter une partie qui a une solution).
+		{"croix anglaise, centre vers centre", MASK_ENGLISHCROSS, START_ENGLISHCROSS, CENTER_ENGLISHCROSS, false},
+		{"croix anglaise, un pion n'importe où", MASK_ENGLISHCROSS, START_ENGLISHCROSS, 0, false},
+		{"européen, trou en c1, un pion n'importe où", MASK_EUROPEAN, MASK_EUROPEAN &^ Bit(0, 2), 0, false},
+		{"européen, trou en d3, un pion n'importe où", MASK_EUROPEAN, START_EUROPEAN, 0, false},
+		{"européen, trou en d3, dernière bille en g5", MASK_EUROPEAN, START_EUROPEAN, Bit(4, 6), false},
+		{"trois alignés", Bit(3, 3) | Bit(3, 4) | Bit(3, 5), Bit(3, 3) | Bit(3, 4), Bit(3, 5), false},
+
+		// Insolubles, détectées par la parité.
+		{"européen, trou au centre, un pion n'importe où (insoluble)", MASK_EUROPEAN, MASK_EUROPEAN &^ CENTER_EUROPEAN, 0, true},
+		{"européen, centre vers centre (insoluble)", MASK_EUROPEAN, MASK_EUROPEAN &^ CENTER_EUROPEAN, CENTER_EUROPEAN, true},
+		{"européen, trou en d3, dernière bille au centre", MASK_EUROPEAN, START_EUROPEAN, CENTER_EUROPEAN, true},
+		{"trois alignés, mauvaise case", Bit(3, 3) | Bit(3, 4) | Bit(3, 5), Bit(3, 3) | Bit(3, 4), Bit(3, 4), true},
+		{"un pion en trop vers un coin", MASK_ENGLISHCROSS, START_ENGLISHCROSS, Bit(0, 2), true},
+	}
+	for _, tc := range tests {
+		// VerifyRuleOfThree est testée directement sur un Game construit à la main :
+		// NewGame appelle elle-même la règle et refuserait de construire les cas insolubles.
+		g := Game{maskPos: tc.mask, startPos: tc.start, endPos: tc.end}
+		err := g.VerifyRuleOfThree()
+		if (err != nil) != tc.wantErr {
+			t.Errorf("%s : erreur = %v, attendu erreur = %v", tc.name, err, tc.wantErr)
+		} else if err != nil {
+			t.Logf("%s : %v", tc.name, err)
+		}
+
+		// NewGame doit refuser exactement les mêmes configurations (la règle y est intégrée).
+		if _, err := NewGame(tc.mask, tc.start, tc.end); (err != nil) != tc.wantErr {
+			t.Errorf("%s : NewGame erreur = %v, attendu erreur = %v", tc.name, err, tc.wantErr)
+		}
+	}
+}
+
+// Vérifie que la règle ne rejette jamais une position réellement atteignable :
+// on joue des parties aléatoires (graine fixe) et chaque position rencontrée doit passer le test.
+func TestVerifyRuleOfThreeSound(t *testing.T) {
+	for _, board := range []struct {
+		name        string
+		mask, start Position
+	}{
+		{"croix anglaise", MASK_ENGLISHCROSS, START_ENGLISHCROSS},
+		{"européen", MASK_EUROPEAN, START_EUROPEAN},
+		{"5x5", MASK_5x5, START_5x5},
+	} {
+		moves := board.mask.AllMoves()
+		rng := rand.New(rand.NewPCG(1, 2))
+		for game := 0; game < 200; game++ {
+			p := board.start
+			for {
+				var legal []Position
+				for _, m := range moves {
+					if pp := p.DoMove(m); pp != 0 {
+						legal = append(legal, pp)
+					}
+				}
+				if len(legal) == 0 {
+					break
+				}
+				p = legal[rng.IntN(len(legal))]
+				g, err := NewGame(board.mask, board.start, p)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := g.VerifyRuleOfThree(); err != nil {
+					t.Fatalf("%s : position atteignable rejetée : %v\n%s", board.name, err, p.Render(board.mask))
+				}
+			}
 		}
 	}
 }

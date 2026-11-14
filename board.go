@@ -45,6 +45,11 @@ const (
 	// MASK_ENGLISHCROSS : croix du solitaire anglais, 33 bits.
 	// Carré 7x7 (x,y: 0..6) privé de ses 4 coins 2x2.
 	MASK_ENGLISHCROSS Position = 0x001C1C7F7F7F1C1C
+
+	// MASK_EUROPEAN : plateau européen (français), 37 bits.
+	// Carré 7x7 (x,y: 0..6) privé de ses 4 coins (2 cases en L : 3 cases par coin),
+	// soit la croix anglaise plus les 4 cases (1,1), (1,5), (5,1) et (5,5).
+	MASK_EUROPEAN Position = 0x001C3E7F7F7F3E1C
 )
 
 // Positions de départ : le mask complet, privé de sa case centrale.
@@ -57,6 +62,23 @@ const (
 	// START_ENGLISHCROSS : 32 pions, trou en (ligne 3, colonne 3) soit d4.
 	CENTER_ENGLISHCROSS Position = (1 << (3*8 + 3))
 	START_ENGLISHCROSS  Position = MASK_ENGLISHCROSS &^ CENTER_ENGLISHCROSS
+
+	// CENTER_EUROPEAN : case centrale du plateau européen, en (ligne 3, colonne 3) soit d4.
+	//
+	// ATTENTION : avec le trou de départ au centre (MASK_EUROPEAN sans CENTER_EUROPEAN), le solitaire
+	// européen est INSOLUBLE, quelle que soit la cible (la règle de trois le prouve, cf. VerifyRuleOfThree ;
+	// c'est le résultat de Bergholt). NewGame refuse donc cette configuration.
+	CENTER_EUROPEAN Position = (1 << (3*8 + 3))
+
+	// HOLE_EUROPEAN : trou de départ choisi pour le plateau européen, en (ligne 2, colonne 3) soit d3,
+	// la case juste au-dessus du centre. Il est compatible avec la règle de trois et une solution existe :
+	// une partie complète en 35 coups, finissant avec une seule bille en g5, a été trouvée par recherche.
+	// La seule bille finale ne peut alors se trouver que sur d2, a5, d5 ou g5.
+	HOLE_EUROPEAN Position = (1 << (2*8 + 3))
+
+	// START_EUROPEAN : 36 pions, trou en d3. Utiliser une cible 0 (une seule bille, n'importe où ;
+	// voir SolveAnyEnd), ou une des cases finales ci-dessus.
+	START_EUROPEAN Position = MASK_EUROPEAN &^ HOLE_EUROPEAN
 )
 
 // Affiche une position. Utilise le mask fourni pour délimiter la surface jouable.

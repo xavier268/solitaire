@@ -123,6 +123,7 @@ func TestStartPositions(t *testing.T) {
 	}{
 		{"5x5", START_5x5, MASK_5x5, Point{2, 2}, 24},
 		{"croix anglaise", START_ENGLISHCROSS, MASK_ENGLISHCROSS, Point{3, 3}, 32},
+		{"européen", START_EUROPEAN, MASK_EUROPEAN, Point{2, 3}, 36},
 	}
 	for _, tc := range tests {
 		t.Logf("START %s :\n%s", tc.name, tc.start.Render(tc.mask))
@@ -138,5 +139,36 @@ func TestStartPositions(t *testing.T) {
 		if tc.start|tc.hole.Bit() != tc.mask {
 			t.Errorf("%s : doit être le mask moins le trou %v", tc.name, tc.hole)
 		}
+	}
+}
+
+func TestMaskEuropean(t *testing.T) {
+	m := MASK_EUROPEAN
+	t.Logf("MASK_EUROPEAN :\n%s", m.Render(m))
+
+	if n := bits.OnesCount64(uint64(m)); n != 37 {
+		t.Errorf("nombre de bits = %d, attendu 37", n)
+	}
+	want := []string{
+		"..OOO...",
+		".OOOOO..",
+		"OOOOOOO.",
+		"OOOOOOO.",
+		"OOOOOOO.",
+		".OOOOO..",
+		"..OOO...",
+		"........",
+	}
+	for l, row := range want {
+		for c, ch := range row {
+			if got := m&(1<<BitIndex(Point{uint8(l), uint8(c)})) != 0; got != (ch == 'O') {
+				t.Errorf("bit (%d,%d) = %v, attendu %v", l, c, got, ch == 'O')
+			}
+		}
+	}
+	// Plateau européen = croix anglaise + 4 cases diagonales.
+	extra := Bit(1, 1) | Bit(1, 5) | Bit(5, 1) | Bit(5, 5)
+	if m != MASK_ENGLISHCROSS|extra {
+		t.Error("MASK_EUROPEAN doit être la croix anglaise + (1,1), (1,5), (5,1), (5,5)")
 	}
 }

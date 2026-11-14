@@ -77,8 +77,16 @@ func main() {
 
 // printTable met en forme un bloc CSV de benchstat en tableau Markdown aligné.
 func printTable(block string) {
-	recs, err := csv.NewReader(strings.NewReader(block)).ReadAll()
-	if err != nil || len(recs) < 3 {
+	r := csv.NewReader(strings.NewReader(block))
+	// Les lignes n'ont pas toutes le même nombre de champs : benchstat omet les colonnes
+	// vides en fin de ligne (benchmark absent des premières versions, par exemple).
+	r.FieldsPerRecord = -1
+	recs, err := r.ReadAll()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "benchtable : CSV illisible : %v\n", err)
+		os.Exit(1)
+	}
+	if len(recs) < 3 {
 		return
 	}
 	h1, h2, rows := recs[0], recs[1], recs[2:]

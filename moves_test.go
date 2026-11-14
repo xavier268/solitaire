@@ -56,6 +56,7 @@ func TestAllMovesCounts(t *testing.T) {
 	}{
 		{"5x5", MASK_5x5, 60},                     // 30 triplets alignés x 2 sens
 		{"croix anglaise", MASK_ENGLISHCROSS, 76}, // 38 triplets alignés x 2 sens
+		{"européen", MASK_EUROPEAN, 92},           // 46 triplets alignés x 2 sens
 		{"8x8", MASK_8x8, 192},                    // 96 triplets alignés x 2 sens
 		{"vide", 0, 0},
 		{"une seule case", Bit(3, 3), 0},
@@ -157,5 +158,98 @@ func TestMoveString(t *testing.T) {
 	m := Move{from: Point{1, 3}, to: Point{3, 3}}
 	if got, want := m.String(), "d2->d4"; got != want {
 		t.Errorf("Move.String() = %q, attendu %q", got, want)
+	}
+}
+
+// dist2 : distance² (x n²) entre le départ du move et le barycentre de target, comme dans SortMoves.
+func dist2(m Move, target Position) int {
+	n := bitsCount(target)
+	var sumL, sumC int
+	for l := 0; l < 8; l++ {
+		for c := 0; c < 8; c++ {
+			if target&Bit(uint8(l), uint8(c)) != 0 {
+				sumL += l
+				sumC += c
+			}
+		}
+	}
+	dl, dc := n*int(m.from.l)-sumL, n*int(m.from.c)-sumC
+	return dl*dl + dc*dc
+}
+
+func bitsCount(p Position) (n int) {
+	for ; p != 0; p &= p - 1 {
+		n++
+	}
+	return n
+}
+
+func TestSortMoves(t *testing.T) {
+	target := CENTER_ENGLISHCROSS
+	moves := MASK_ENGLISHCROSS.AllMoves()
+	orig := append([]Move(nil), moves...)
+
+	SortMoves(moves, target)
+
+	// Même ensemble de moves.
+	if len(moves) != len(orig) {
+		t.Fatalf("%d moves après tri, attendu %d", len(moves), len(orig))
+	}
+	set := map[Move]int{}
+	for _, m := range orig {
+		set[m]++
+	}
+	for _, m := range moves {
+		set[m]--
+	}
+	for m, n := range set {
+		if n != 0 {
+			t.Errorf("move %v perdu ou dupliqué par le tri", m)
+		}
+	}
+
+	// Distance décroissante ; à distance égale, l'ordre initial est conservé (tri stable).
+	pos := map[Move]int{}
+	for i, m := range orig {
+		pos[m] = i
+	}
+	for i := 1; i < len(moves); i++ {
+		a, b := dist2(moves[i-1], target), dist2(moves[i], target)
+		if a < b {
+			t.Fatalf("moves[%d] (%v, d=%d) avant moves[%d] (%v, d=%d) : pas décroissant", i-1, moves[i-1], a, i, moves[i], b)
+		}
+		if a == b && pos[moves[i-1]] > pos[moves[i]] {
+			t.Errorf("tri non stable entre %v et %v", moves[i-1], moves[i])
+		}
+	}
+
+	// Le premier move part d'un coin de la croix (le plus éloigné du centre d4), pas du centre.
+	if f := moves[0].from; (f.l != 0 && f.l != 6) || (f.c != 0 && f.c != 6) && f.c != 2 && f.c != 4 {
+		t.Logf("premier move : %v", moves[0])
+	}
+	if d0, dl := dist2(moves[0], target), dist2(moves[len(moves)-1], target); d0 <= dl {
+		t.Errorf("le premier move (d=%d) doit être plus éloigné que le dernier (d=%d)", d0, dl)
+	}
+	t.Logf("premier : %v, dernier : %v", moves[0], moves[len(moves)-1])
+}
+
+func TestSortMovesEmptyTarget(t *testing.T) {
+	moves := MASK_5x5.AllMoves()
+	orig := append([]Move(nil), moves...)
+	SortMoves(moves, 0)
+	for i := range moves {
+		if moves[i] != orig[i] {
+			t.Fatalf("cible vide : l'ordre ne doit pas changer (index %d)", i)
+		}
+	}
+}
+
+func TestSortMovesNoAlloc(t *testing.T) {
+	moves := MASK_ENGLISHCROSS.AllMoves()
+	allocs := testing.AllocsPerRun(100, func() {
+		SortMoves(moves, CENTER_ENGLISHCROSS)
+	})
+	if allocs != 0 {
+		t.Errorf("SortMoves alloue : %v allocs/op, attendu 0", allocs)
 	}
 }
