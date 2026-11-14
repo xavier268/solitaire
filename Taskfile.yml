@@ -36,8 +36,16 @@ tasks:
       - go tool cover -html=coverage.out
 
   bench:
-    desc: Lance les benchmarks et sauve les résultats dans bench/bench-v<VERSION>.txt
+    desc: Lance les benchmarks, les sauve dans bench/bench-v<VERSION>.txt, puis compare toutes les versions (benchstat)
     cmds:
       - go run ./cmd/sysinfo > {{.BENCH_FILE}}
       - go test -run '^$' -bench . -benchmem -count=5 ./... >> {{.BENCH_FILE}}
       - echo "Résultats (version {{.VERSION}}) sauvés dans {{.BENCH_FILE}}"
+      - task: bench:stat
+
+  bench:stat:
+    desc: Compare avec benchstat tous les fichiers bench/bench-v*.txt, affiche et sauve dans bench/bench-stats.txt
+    cmds:
+      - benchstat bench/bench-v*.txt > bench/bench-stats.txt
+      - benchstat bench/bench-v*.txt
+      - echo "Comparaison sauvée dans bench/bench-stats.txt"
