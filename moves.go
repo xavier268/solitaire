@@ -1,6 +1,9 @@
 package solitaire
 
-import "fmt"
+import (
+	"fmt"
+	"math/bits"
+)
 
 type Move struct {
 	from  Point    // case de départ
@@ -35,7 +38,9 @@ func (p Position) DoMove(m Move) (pp Position) {
 // les 3 cases (départ, saut, arrivée) doivent toutes appartenir au mask.
 // Chaque sens est un move distinct.
 func (mask Position) AllMoves() []Move {
-	var moves []Move
+	// Borne haute : au plus 4 moves (un par direction) au départ de chaque case du mask.
+	// Une seule allocation, sans réallocation par append.
+	moves := make([]Move, 0, 4*bits.OnesCount64(uint64(mask)))
 	dirs := [4][2]int{{-1, 0}, {1, 0}, {0, -1}, {0, 1}} // (dl, dc)
 
 	// inside indique si (l, c) est sur la grille 8x8 et dans le mask.
