@@ -101,4 +101,32 @@ package solitaire
 //     (le champ dPag n'agrandit pas Move) ; Solve européen ≈ 1,9 s +/- 95 % (v0.1.5 : ≈ 2,4 s +/- 52 %) :
 //     la dispersion est telle que les deux versions ne sont pas distinguables, ce temps dépend surtout de la graine.
 
-const VERSION = "0.1.6"
+// v0.1.7 : table de fins de partie (endgame.go). Les pagodas multiples sont abandonnées.
+//   - Essai abandonné (code retiré) : jusqu'à 16 pagodas empaquetées en voies de 16 bits (état [4]uint64, deltas par
+//     coup dans une table indexée par Move.id). Résultat : aucun gain. Sur l'européen cible 0, 12 graines fixes :
+//     40,2 s (0 pagoda), 40,6 s (1), 40,1 s (5), 41,3 s (16). Les pagodas n'élaguent presque rien (la somme des poids
+//     reste très au-dessus du seuil tant qu'il reste beaucoup de billes), et NewGame passait de ≈ 2 µs à 16-19 µs.
+//     Le code revient donc exactement à la v0.1.6 (une seule pagode, Move.dPag).
+//   - Table de fins de partie : chaque coup retire un pion, donc toute partie passe par une position à K pions.
+//     On construit l'ensemble EXACT des positions à K pions qui atteignent la cible, par recherche arrière
+//     (Position.UndoMove, inverse de DoMove) depuis les positions finales (cible précise, ou cases que la règle de
+//     trois ne rejette pas si cible 0), couche par couche. Dans dfs et dfsAnyEnd, une position à K pions absente de
+//     la table est perdante et coupée en O(1). La table est exacte : aucune solution n'est perdue (tests).
+//   - Construite à la demande (Game.endgame, posSet = table de hachage à adressage ouvert), seulement quand la
+//     tentative à ordre fixe échoue : la croix anglaise (≈ 1,6 ms, 0 allocation) et NewGame sont inchangés.
+//   - K est fixé par maxEndgame = 2^18 positions par couche : K = 8 sur l'européen (77 008 positions, ≈ 4 Mo, quelques
+//     ms). Couches de l'européen : K = 9 : 318 437 ; K = 10 : 1 196 082 ; K = 11 : 4 025 725.
+//   - Mesures sur l'européen cible 0, 12 graines fixes : 37,6 s au total sans table (max 24,9 s), 17,0 s avec K = 8
+//     (max 3,9 s), 17,2 s avec K = 9, 21,3 s avec K = 10, 63 s avec K = 11 (la construction coûte plus que le gain).
+//     Sur 15 résolutions à graine aléatoire : moyenne ≈ 2,5 s, de 0,07 s à 10,5 s. La queue lourde est réduite
+//     (25 s -> 10 s au pire) mais reste présente : la partie coûteuse est le milieu de la partie, pas la fin.
+//   - Mesures (bench/bench-v0.1.7.txt, 10 passages) : croix anglaise ≈ 1,57 ms, 0 allocation ; NewGame ≈ 1,59 µs (croix)
+//     et ≈ 1,98 µs (européen), 4 allocs, inchangés ; Solve européen ≈ 1,27 s +/- 170 % (v0.1.6 : ≈ 1,89 s +/- 95 %) :
+//     dispersion trop grande pour distinguer les deux versions sur 10 passages. Le benchmark réutilise le même Game,
+//     donc la table n'est construite qu'une fois (première itération) ; ≈ 150 Mo et ≈ 15 800 allocs par résolution
+//     (map des impasses, table, copie mélangée des coups).
+//   - Tests : endgame_test.go (UndoMove, posSet, exactitude de la table contre une recherche exhaustive, positions
+//     d'une vraie solution toujours présentes).
+//   - Pistes : symétries du plateau (clés canoniques des impasses), ordre des coups guidé.
+
+const VERSION = "0.1.7"

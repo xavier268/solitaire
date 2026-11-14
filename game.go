@@ -32,6 +32,13 @@ type Game struct {
 	nodes    int    // nœuds explorés pendant la tentative en cours
 	budget   int    // nombre maximal de nœuds de la tentative en cours
 	aborted  bool   // vrai si la tentative en cours a épuisé son budget
+
+	// Table de fins de partie (voir endgame.go) : positions à endgameK pions qui atteignent la cible.
+	// Construite à la demande, la première fois que la tentative à ordre fixe échoue.
+	endgame      posSet
+	endgameK     int  // nombre de pions des positions de la table ; 0 si pas de table
+	endgameBuilt bool // la construction a déjà été tentée
+	endgameOff   bool // désactive la table (tests et mesures)
 }
 
 // firstBudget est le budget de nœuds de la première tentative, faite avec l'ordre fixe des coups (ordre de AllMoves) :
@@ -129,7 +136,7 @@ func (g *Game) markDead(p Position) {
 // Les impasses mémorisées restent valables d'une tentative à l'autre (elles ne sont marquées qu'après une
 // exploration complète). Une tentative qui se termine sans épuiser son budget et sans succès prouve
 // qu'il n'y a pas de solution.
-func (g *Game) search(run func(Position, int32) bool) error {
+func (g *Game) search(run func(Position, int32) bool, anyEnd bool) error {
 	g.solution = g.solution[:0]
 	g.resetDead()
 	if g.rng == nil { // Game construit sans NewGame
@@ -145,6 +152,12 @@ func (g *Game) search(run func(Position, int32) bool) error {
 		g.solution = g.solution[:0]
 		if !g.aborted {
 			return fmt.Errorf("aucune solution entre la position de départ et la position cible")
+		}
+
+		// La tentative à ordre fixe a échoué : la recherche est dure, on construit la table de fins de partie.
+		if !g.endgameBuilt && !g.endgameOff {
+			g.endgameBuilt = true
+			g.buildEndgame(anyEnd)
 		}
 
 		// Tentative suivante : ordre des coups mélangé.
@@ -169,7 +182,7 @@ func (g *Game) search(run func(Position, int32) bool) error {
 // En cas de succès, g.solution contient les positions successives après chaque coup
 // (la position de départ n'est pas incluse, la dernière est endPos).
 func (g *Game) Solve() error {
-	return g.search(g.dfs)
+	return g.search(g.dfs, false)
 }
 
 // SolveAnyEnd est une variante de Solve : si la position cible est 0, on cherche simplement
@@ -177,7 +190,7 @@ func (g *Game) Solve() error {
 // (la cible exacte doit être atteinte). Erreur si impossible.
 // En cas de succès, g.solution contient les positions successives après chaque coup.
 func (g *Game) SolveAnyEnd() error {
-	return g.search(g.dfsAnyEnd)
+	return g.search(g.dfsAnyEnd, true)
 }
 
 // dfsAnyEnd : comme dfs (pag est la valeur de pagode de curr, mise à jour avec Move.dPag), mais avec endPos == 0 le but est d'atteindre un seul pion.
@@ -191,6 +204,11 @@ func (g *Game) dfsAnyEnd(curr Position, pag int32) bool {
 	g.nodes++
 	if g.nodes > g.budget {
 		g.aborted = true
+		return false
+	}
+
+	// Table de fins de partie : une position à endgameK pions absente de la table est perdante (table exacte).
+	if g.endgameK != 0 && bits.OnesCount64(uint64(curr)) == g.endgameK && !g.endgame.has(curr) {
 		return false
 	}
 
@@ -236,6 +254,11 @@ func (g *Game) dfs(curr Position, pag int32) bool {
 	g.nodes++
 	if g.nodes > g.budget {
 		g.aborted = true
+		return false
+	}
+
+	// Table de fins de partie : une position à endgameK pions absente de la table est perdante (table exacte).
+	if g.endgameK != 0 && bits.OnesCount64(uint64(curr)) == g.endgameK && !g.endgame.has(curr) {
 		return false
 	}
 

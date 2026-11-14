@@ -110,3 +110,14 @@ func SortMoves(moves []Move, target Position) {
 		return dist(b.from) - dist(a.from) // décroissant
 	})
 }
+
+// UndoMove applique à l'envers le move m à la position p : c'est l'inverse de DoMove.
+// Valide si, parmi les 3 cases alignées, seule la case d'arrivée est occupée (le pion a sauté de from vers to
+// en retirant la case sautée). Renvoie la position avant le coup (to se vide, from et la case sautée se remplissent),
+// ou 0 si le coup inverse est impossible.
+func (p Position) UndoMove(m Move) Position {
+	if p&m.mask3 != m.mask3&^m.mask2 {
+		return 0
+	}
+	return p ^ m.mask3
+}
