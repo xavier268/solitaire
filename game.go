@@ -277,6 +277,37 @@ func (g *Game) dfs(curr Position, pag int32) bool {
 	return false
 }
 
+// Solution renvoie une copie de la solution trouvée par la dernière recherche réussie (Solve ou SolveAnyEnd) :
+// les positions successives après chaque coup. La position de départ n'est pas incluse ; la dernière est la position
+// finale. Renvoie une slice vide si aucune solution n'est disponible (pas de recherche réussie, ou départ == cible).
+func (g *Game) Solution() []Position {
+	return append([]Position(nil), g.solution...)
+}
+
+// Moves reconstruit les coups de la solution courante, dans l'ordre : le coup i fait passer de la position i-1
+// (la position de départ pour i = 0) à Solution()[i]. Chaque coup se retrouve à partir de deux positions consécutives
+// (le seul coup dont DoMove donne la position suivante), donc la recherche n'a pas à les mémoriser. Move.String donne
+// le format « e2->e5 » (colonne a-h, ligne 1-8). Renvoie une erreur si la solution est incohérente avec le jeu.
+func (g *Game) Moves() ([]Move, error) {
+	moves := make([]Move, 0, len(g.solution))
+	prev := g.startPos
+	for i, next := range g.solution {
+		found := false
+		for _, m := range g.validMoves {
+			if prev.DoMove(m) == next {
+				moves = append(moves, m)
+				found = true
+				break
+			}
+		}
+		if !found {
+			return nil, fmt.Errorf("aucun coup ne mène de la position %d à la suivante dans la solution", i)
+		}
+		prev = next
+	}
+	return moves, nil
+}
+
 // VerifyRuleOfThree detecte avec des considérations de parité si la cible est certainement hors d'atteinte.
 // Une réponse sans erreur ne garanti pas qu'une solution existe, mais une erreur garanti qu'elle n'existe pas.
 /* Le test de classe modulo 3 (souvent appelé Rule of Three ou Coloring Invariant) est un invariant algébrique extrêmement puissant.
