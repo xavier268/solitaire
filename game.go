@@ -11,7 +11,16 @@ type Game struct {
 	endPos     Position // Target end position
 	validMoves []Move   // List of valid moves (sorted)
 	solution   []Position
+
+	// Positions déjà explorées sans succès (impasses), pour ne jamais les explorer deux fois.
+	// La map est allouée une seule fois (à la première recherche), puis simplement vidée
+	// par clear() à chaque nouvelle recherche : sa mémoire est conservée et réutilisée.
+	dead map[Position]struct{}
 }
+
+// maxDeadPositions borne la mémoire de la map des impasses (environ 100 Mo au maximum).
+// Au-delà, les nouvelles impasses ne sont plus mémorisées : la recherche reste correcte, mais plus lente.
+const maxDeadPositions = 1 << 22
 
 // NewGame crée un jeu à partir du mask du board, de la position de départ et de la position cible.
 // Renvoie une erreur si une des positions sort du mask, ou si la cible a plus de pions que le départ
@@ -59,12 +68,31 @@ func NewGame(maskPos Position, startPos Position, endPos Position) (Game, error)
 	return g, nil
 }
 
+// resetDead prépare la map des impasses pour une nouvelle recherche.
+// Allocation unique : la map n'est créée qu'à la première recherche ; ensuite clear() la vide
+// en conservant sa mémoire, donc les recherches suivantes ne réallouent rien.
+func (g *Game) resetDead() {
+	if g.dead == nil {
+		g.dead = make(map[Position]struct{})
+		return
+	}
+	clear(g.dead)
+}
+
+// markDead mémorise une impasse (position dont toutes les branches ont échoué), dans la limite de maxDeadPositions.
+func (g *Game) markDead(p Position) {
+	if len(g.dead) < maxDeadPositions {
+		g.dead[p] = struct{}{}
+	}
+}
+
 // Solve recherche une solution pour aller de la position de départ à la position cible
-// (depth-first brute force, sans élagage). Erreur si impossible.
+// (depth-first, avec mémorisation des impasses, sans autre élagage). Erreur si impossible.
 // En cas de succès, g.solution contient les positions successives après chaque coup
 // (la position de départ n'est pas incluse, la dernière est endPos).
 func (g *Game) Solve() error {
 	g.solution = g.solution[:0]
+	g.resetDead()
 	if !g.dfs(g.startPos) {
 		return fmt.Errorf("aucune solution entre la position de départ et la position cible")
 	}
@@ -77,6 +105,7 @@ func (g *Game) Solve() error {
 // En cas de succès, g.solution contient les positions successives après chaque coup.
 func (g *Game) SolveAnyEnd() error {
 	g.solution = g.solution[:0]
+	g.resetDead()
 	if !g.dfsAnyEnd(g.startPos) {
 		return fmt.Errorf("aucune solution entre la position de départ et la position cible")
 	}
@@ -90,6 +119,11 @@ func (g *Game) dfsAnyEnd(curr Position) bool {
 		return true
 	}
 
+	// Impasse déjà rencontrée par un autre chemin : inutile de la réexplorer.
+	if _, lost := g.dead[curr]; lost {
+		return false
+	}
+
 	for _, m := range g.validMoves {
 		next := curr.DoMove(m)
 		if next == 0 { // move illégal depuis cette position
@@ -101,6 +135,8 @@ func (g *Game) dfsAnyEnd(curr Position) bool {
 		}
 		g.solution = g.solution[:len(g.solution)-1] // backtrack
 	}
+
+	g.markDead(curr) // toutes les branches ont échoué : on mémorise l'impasse
 	return false
 }
 
@@ -111,6 +147,11 @@ func (g *Game) dfs(curr Position) bool {
 
 	if curr == g.endPos {
 		return true
+	}
+
+	// Impasse déjà rencontrée par un autre chemin : inutile de la réexplorer.
+	if _, lost := g.dead[curr]; lost {
+		return false
 	}
 
 	for _, m := range g.validMoves {
@@ -124,6 +165,8 @@ func (g *Game) dfs(curr Position) bool {
 		}
 		g.solution = g.solution[:len(g.solution)-1] // backtrack
 	}
+
+	g.markDead(curr) // toutes les branches ont échoué : on mémorise l'impasse
 	return false
 }
 

@@ -3,6 +3,7 @@ package solitaire
 import (
 	"math/rand/v2"
 	"os"
+	"reflect"
 	"testing"
 )
 
@@ -112,11 +113,15 @@ func TestSolveEnglishCross(t *testing.T) {
 }
 
 // BenchmarkSolveEnglishCross mesure la résolution seule (NewGame est hors mesure).
-// Solve réutilise la capacité de solution : on s'attend à 0 allocation par résolution.
+// Solve réutilise la capacité de solution et la map des impasses : on s'attend à 0 allocation par résolution.
+// Une première résolution hors mesure crée la map (allocation unique), les suivantes la réutilisent.
 // Lancer avec : go test -run '^$' -bench SolveEnglishCross -benchmem
 func BenchmarkSolveEnglishCross(b *testing.B) {
 	g, err := NewGame(MASK_ENGLISHCROSS, START_ENGLISHCROSS, CENTER_ENGLISHCROSS)
 	if err != nil {
+		b.Fatal(err)
+	}
+	if err := g.Solve(); err != nil { // échauffement : alloue la map des impasses
 		b.Fatal(err)
 	}
 	b.ReportAllocs()
@@ -296,4 +301,38 @@ func TestVerifyRuleOfThreeSound(t *testing.T) {
 			}
 		}
 	}
+}
+
+// La map des impasses n'est allouée qu'une fois : les recherches suivantes réutilisent sa mémoire (clear).
+func TestDeadMapAllocatedOnce(t *testing.T) {
+	g, err := NewGame(MASK_ENGLISHCROSS, START_ENGLISHCROSS, CENTER_ENGLISHCROSS)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if g.dead != nil {
+		t.Error("la map ne doit pas être allouée avant la première recherche")
+	}
+
+	// Première recherche : la map est créée puis remplie d'impasses.
+	if err := g.Solve(); err != nil {
+		t.Fatal(err)
+	}
+	if len(g.dead) == 0 {
+		t.Fatal("des impasses auraient dû être mémorisées")
+	}
+	first := reflect.ValueOf(g.dead).Pointer()
+
+	// Recherches suivantes : même map, aucune allocation.
+	allocs := testing.AllocsPerRun(5, func() {
+		if err := g.Solve(); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if allocs != 0 {
+		t.Errorf("Solve alloue %v fois après la première recherche, attendu 0", allocs)
+	}
+	if reflect.ValueOf(g.dead).Pointer() != first {
+		t.Error("la map des impasses a été recréée")
+	}
+	checkSolution(t, g)
 }
