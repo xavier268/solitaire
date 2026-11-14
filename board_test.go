@@ -6,11 +6,11 @@ import (
 )
 
 func TestBitIndex(t *testing.T) {
-	tests := []struct{ ligne, colonne, want int }{
+	tests := []struct{ ligne, colonne, want uint8 }{
 		{0, 0, 0}, {0, 7, 7}, {1, 0, 8}, {2, 3, 19}, {7, 7, 63},
 	}
 	for _, tc := range tests {
-		if got := BitIndex(tc.ligne, tc.colonne); got != tc.want {
+		if got := BitIndex(Point{tc.ligne, tc.colonne}); got != tc.want {
 			t.Errorf("BitIndex(%d,%d) = %d, attendu %d", tc.ligne, tc.colonne, got, tc.want)
 		}
 	}
@@ -30,10 +30,10 @@ func TestMask5x5(t *testing.T) {
 	if n := bits.OnesCount64(uint64(m)); n != 25 {
 		t.Errorf("nombre de bits = %d, attendu 25", n)
 	}
-	for l := 0; l < 8; l++ {
-		for c := 0; c < 8; c++ {
+	for l := uint8(0); l < 8; l++ {
+		for c := uint8(0); c < 8; c++ {
 			want := l < 5 && c < 5
-			if got := m&(1<<BitIndex(l, c)) != 0; got != want {
+			if got := m&(1<<BitIndex(Point{l, c})) != 0; got != want {
 				t.Errorf("bit (%d,%d) = %v, attendu %v", l, c, got, want)
 			}
 		}
@@ -60,7 +60,7 @@ func TestMaskEnglishCross(t *testing.T) {
 	}
 	for l, row := range want {
 		for c, ch := range row {
-			if got := m&(1<<BitIndex(l, c)) != 0; got != (ch == 'O') {
+			if got := m&(1<<BitIndex(Point{uint8(l), uint8(c)})) != 0; got != (ch == 'O') {
 				t.Errorf("bit (%d,%d) = %v, attendu %v", l, c, got, ch == 'O')
 			}
 		}
@@ -72,13 +72,43 @@ func TestMaskEnglishCross(t *testing.T) {
 // Visible avec : go test -v -run TestRender
 func TestRender(t *testing.T) {
 	// Croix anglaise complète sauf le centre (3,3) : position initiale classique.
-	start := MASK_ENGLISHCROSS &^ (1 << BitIndex(3, 3))
+	start := MASK_ENGLISHCROSS &^ (1 << BitIndex(Point{3, 3}))
 	t.Logf("Position initiale du solitaire anglais :\n%s", start.Render(MASK_ENGLISHCROSS))
 	start.Print(MASK_ENGLISHCROSS)
 
 	// Un bit hors du mask doit être ignoré.
-	outside := Position(1) << BitIndex(7, 7)
+	outside := Position(1) << BitIndex(Point{7, 7})
 	if outside.Render(MASK_ENGLISHCROSS) != Position(0).Render(MASK_ENGLISHCROSS) {
 		t.Error("un bit hors du mask ne doit pas être affiché")
+	}
+}
+
+func TestPointString(t *testing.T) {
+	tests := []struct {
+		pt   Point
+		want string
+	}{
+		{Point{0, 0}, "a0"}, {Point{3, 3}, "d3"}, {Point{2, 7}, "h2"}, {Point{7, 0}, "a7"},
+	}
+	for _, tc := range tests {
+		if got := tc.pt.String(); got != tc.want {
+			t.Errorf("Point%v.String() = %q, attendu %q", [2]uint8{tc.pt.l, tc.pt.c}, got, tc.want)
+		}
+	}
+}
+
+func TestRenderFormat(t *testing.T) {
+	got := (Position(1) << BitIndex(Point{1, 2})).Render(MASK_5x5)
+	want := "  a b c d e f g h\n" +
+		"0 . . . . .       \n" +
+		"1 . . O . .       \n" +
+		"2 . . . . .       \n" +
+		"3 . . . . .       \n" +
+		"4 . . . . .       \n" +
+		"5                 \n" +
+		"6                 \n" +
+		"7                 \n"
+	if got != want {
+		t.Errorf("Render =\n%s\nattendu\n%s", got, want)
 	}
 }

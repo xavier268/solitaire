@@ -9,10 +9,29 @@ import (
 // Une position sur le board (8x8 max) est reprensté par un bitmap sur 64bits (uint64)
 type Position uint64
 
+// Coordonnée sur la grille
+type Point struct {
+	l, c uint8
+}
+
+func (pt Point) String() string {
+	return fmt.Sprintf("%c%1d", pt.c+'a', pt.l)
+}
+
 // BitIndex renvoie l'index du bit (0 à 63) correspondant à (ligne, colonne).
 // ligne et colonne vont de 0 à 7.
-func BitIndex(ligne, colonne int) int {
-	return ligne*8 + colonne
+func BitIndex(pt Point) uint8 {
+	return pt.l*8 + pt.c
+}
+
+// Return un bitmask correspondnat aux coordonnées fournies
+func Bit(l, c uint8) Position {
+	return 1 << BitIndex(Point{l, c})
+}
+
+// Le bitMask correspondnat à un point donné
+func (pt Point) Bit() Position {
+	return 1 << BitIndex(pt)
 }
 
 // Masques définissant les limites des boards (1 octet par ligne, bit 0 = colonne 0).
@@ -40,12 +59,12 @@ func (p Position) Print(mask Position) {
 func (p Position) Render(mask Position) string {
 	p &= mask
 	var sb strings.Builder
-	sb.WriteString("  0 1 2 3 4 5 6 7\n")
-	for l := 0; l < 8; l++ {
+	sb.WriteString("  a b c d e f g h\n")
+	for l := range uint8(8) {
 		sb.WriteByte(byte('0' + l))
 		sb.WriteByte(' ')
-		for c := 0; c < 8; c++ {
-			bit := Position(1) << BitIndex(l, c)
+		for c := range uint8(8) {
+			bit := Position(1) << BitIndex(Point{l, c})
 			switch {
 			case mask&bit == 0:
 				sb.WriteString("  ")
