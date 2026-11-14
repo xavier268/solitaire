@@ -15,7 +15,7 @@ type Point struct {
 }
 
 func (pt Point) String() string {
-	return fmt.Sprintf("%c%1d", pt.c+'a', pt.l)
+	return fmt.Sprintf("%c%1d", pt.c+'a', pt.l+1)
 }
 
 // BitIndex renvoie l'index du bit (0 à 63) correspondant à (ligne, colonne).
@@ -61,7 +61,7 @@ func (p Position) Render(mask Position) string {
 	var sb strings.Builder
 	sb.WriteString("  a b c d e f g h\n")
 	for l := range uint8(8) {
-		sb.WriteByte(byte('0' + l))
+		sb.WriteByte(byte('0' + l + 1))
 		sb.WriteByte(' ')
 		for c := range uint8(8) {
 			bit := Position(1) << BitIndex(Point{l, c})

@@ -155,7 +155,7 @@ func TestPlayGame(t *testing.T) {
 
 func TestMoveString(t *testing.T) {
 	m := Move{from: Point{1, 3}, to: Point{3, 3}}
-	if got, want := m.String(), "d1->d3"; got != want {
+	if got, want := m.String(), "d2->d4"; got != want {
 		t.Errorf("Move.String() = %q, attendu %q", got, want)
 	}
 }

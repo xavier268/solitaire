@@ -88,7 +88,7 @@ func TestPointString(t *testing.T) {
 		pt   Point
 		want string
 	}{
-		{Point{0, 0}, "a0"}, {Point{3, 3}, "d3"}, {Point{2, 7}, "h2"}, {Point{7, 0}, "a7"},
+		{Point{0, 0}, "a1"}, {Point{3, 3}, "d4"}, {Point{2, 7}, "h3"}, {Point{7, 0}, "a8"},
 	}
 	for _, tc := range tests {
 		if got := tc.pt.String(); got != tc.want {
@@ -100,14 +100,14 @@ func TestPointString(t *testing.T) {
 func TestRenderFormat(t *testing.T) {
 	got := (Position(1) << BitIndex(Point{1, 2})).Render(MASK_5x5)
 	want := "  a b c d e f g h\n" +
-		"0 . . . . .       \n" +
-		"1 . . O . .       \n" +
-		"2 . . . . .       \n" +
+		"1 . . . . .       \n" +
+		"2 . . O . .       \n" +
 		"3 . . . . .       \n" +
 		"4 . . . . .       \n" +
-		"5                 \n" +
+		"5 . . . . .       \n" +
 		"6                 \n" +
-		"7                 \n"
+		"7                 \n" +
+		"8                 \n"
 	if got != want {
 		t.Errorf("Render =\n%s\nattendu\n%s", got, want)
 	}
