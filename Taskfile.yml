@@ -5,6 +5,7 @@ vars:
   VERSION:
     sh: go run ./cmd/version
   BENCH_FILE: bench/bench-v{{.VERSION}}.txt
+  BENCH_COUNT: 10 # nombre de mesures par benchmark (benchstat exige au moins 6 pour calculer un intervalle de confiance)
 
 tasks:
   default:
@@ -39,18 +40,14 @@ tasks:
     desc: Lance les benchmarks, les sauve dans bench/bench-v<VERSION>.txt, puis compare toutes les versions (benchstat)
     cmds:
       - go run ./cmd/sysinfo > {{.BENCH_FILE}}
-      - go test -run '^$' -bench . -benchmem -count=5 ./... >> {{.BENCH_FILE}}
+      - go test -run '^$' -bench . -benchmem -count={{.BENCH_COUNT}} ./... >> {{.BENCH_FILE}}
       - echo "Résultats (version {{.VERSION}}) sauvés dans {{.BENCH_FILE}}"
       - task: bench:stat
 
   bench:stat:
     desc: Compare avec benchstat tous les fichiers bench/bench-v*.txt, affiche et sauve dans bench/bench-stats.md
     cmds:
-      # Le tableau benchstat est dans un bloc de code : sinon le rendu Markdown écrase l'alignement des colonnes.
-      - echo '# Comparaison des benchmarks (benchstat)' > bench/bench-stats.md
-      - echo '' >> bench/bench-stats.md
-      - echo '```text' >> bench/bench-stats.md
-      - benchstat bench/bench-v*.txt >> bench/bench-stats.md
-      - echo '```' >> bench/bench-stats.md
-      - benchstat bench/bench-v*.txt
+      # cmd/benchtable appelle benchstat (CSV) et produit des tableaux ASCII purs (format Markdown).
+      - go run ./cmd/benchtable > bench/bench-stats.md
+      - go run ./cmd/benchtable
       - echo "Comparaison sauvée dans bench/bench-stats.md"

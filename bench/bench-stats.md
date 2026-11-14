@@ -1,31 +1,30 @@
 # Comparaison des benchmarks (benchstat)
 
-```text
-goos: windows
-goarch: amd64
-pkg: github.com/xavier268/solitaire
-cpu: Intel(R) Core(TM) i7-10700 CPU @ 2.90GHz
-                       │ bench\bench-v0.1.0.txt │       bench\bench-v0.1.1.txt        │
-                       │         sec/op         │    sec/op     vs base               │
-SolveEnglishCross-16               475.0m ± ∞ ¹   470.5m ± ∞ ¹        ~ (p=0.095 n=5)
-NewGameEnglishCross-16            1586.0n ± ∞ ¹   876.0n ± ∞ ¹  -44.77% (p=0.008 n=5)
-geomean                            868.0µ         642.0µ        -26.03%
-¹ need >= 6 samples for confidence interval at level 0.95
+- goos: windows
+- goarch: amd64
+- pkg: github.com/xavier268/solitaire
+- cpu: Intel(R) Core(TM) i7-10700 CPU @ 2.90GHz
 
-                       │ bench\bench-v0.1.0.txt │         bench\bench-v0.1.1.txt         │
-                       │          B/op          │     B/op       vs base                 │
-SolveEnglishCross-16                0.000 ± ∞ ¹     0.000 ± ∞ ¹        ~ (p=1.000 n=5)
-NewGameEnglishCross-16            6.227Ki ± ∞ ¹   3.375Ki ± ∞ ¹  -45.80% (p=0.008 n=5)
-geomean                                       ²                  -26.38%               ²
-¹ need >= 6 samples for confidence interval at level 0.95
-² summaries must be >0 to compute geomean
+| sec/op                 | bench-v0.1.0.txt  | bench-v0.1.1.txt | vs base                  |
+|------------------------|-------------------|------------------|--------------------------|
+| SolveEnglishCross-16   | 475.00 ms +/- inf | 474.55 ms +/- 2% | ~ (p=0.440 n=5+10)       |
+| NewGameEnglishCross-16 | 1.59 us +/- inf   | 891.4 ns +/- 16% | -43.80% (p=0.001 n=5+10) |
+| geomean                | 867.96 us         | 650.38 us        | -25.07%                  |
 
-                       │ bench\bench-v0.1.0.txt │        bench\bench-v0.1.1.txt        │
-                       │       allocs/op        │  allocs/op   vs base                 │
-SolveEnglishCross-16                0.000 ± ∞ ¹   0.000 ± ∞ ¹        ~ (p=1.000 n=5) ²
-NewGameEnglishCross-16              9.000 ± ∞ ¹   2.000 ± ∞ ¹  -77.78% (p=0.008 n=5)
-geomean                                       ³                -52.86%               ³
-¹ need >= 6 samples for confidence interval at level 0.95
-² all samples are equal
-³ summaries must be >0 to compute geomean
-```
+| B/op                   | bench-v0.1.0.txt  | bench-v0.1.1.txt | vs base            |
+|------------------------|-------------------|------------------|--------------------|
+| SolveEnglishCross-16   | 0 B +/- inf       | 0 B +/- ?        | ~ (p=0.857 n=5+10) |
+| NewGameEnglishCross-16 | 6.227 KiB +/- inf | 3.375 KiB +/- 0% | -45.80% (n=5+10)   |
+| geomean                |                   |                  | -26.38%            |
+
+| allocs/op              | bench-v0.1.0.txt | bench-v0.1.1.txt | vs base            |
+|------------------------|------------------|------------------|--------------------|
+| SolveEnglishCross-16   | 0 +/- inf        | 0 +/- 0%         | ~ (p=1.000 n=5+10) |
+| NewGameEnglishCross-16 | 9 +/- inf        | 2 +/- 0%         | -77.78% (n=5+10)   |
+| geomean                |                  |                  | -52.86%            |
+
+Notes :
+
+- need >= 6 samples for confidence interval at level 0.95
+- summaries must be >0 to compute geomean
+- all samples are equal
