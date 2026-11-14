@@ -3,7 +3,8 @@ package solitaire
 // Historique des versions
 // ========================
 //
-// Les mesures de performance sont dans bench/bench-v<VERSION>.txt ; la comparaison entre versions
+// Les mesures de performance sont dans bench/bench-v<VERSION>.txt (numéro de patch sur 2 chiffres : bench-v0.1.07.txt, bench-v0.1.10.txt ;
+// ainsi l'ordre alphabétique est l'ordre des versions) ; la comparaison entre versions
 // est dans bench/bench-stats.md (task bench, task bench:stat). Mesures : i7-10700, Go 1.25 à 1.27.
 //
 // v0.1.0 : première version, recherche brute force.
@@ -38,7 +39,7 @@ package solitaire
 //   - Plateau européen : le départ avec le trou au centre est INSOLUBLE (Bergholt), la recherche de
 //     la v0.1.2 ne pouvait donc jamais finir. START_EUROPEAN a maintenant le trou en d3 (HOLE_EUROPEAN),
 //     avec une solution connue en 35 coups (dernière bille en g5). CENTER_EUROPEAN est conservé.
-//   - Coût de la règle de trois dans NewGame : négligeable (bench/bench-v0.1.3.txt) : ≈ 0,96 µs (croix)
+//   - Coût de la règle de trois dans NewGame : négligeable (bench/bench-v0.1.03.txt) : ≈ 0,96 µs (croix)
 //     et ≈ 1,26 µs (européen), comme en v0.1.2. Solve est inchangée (≈ 474 ms).
 //   - La résolution du plateau européen par le DFS brute force est toujours trop longue (plus de 90 s) :
 //     son benchmark est désactivé par défaut (BENCH_EUROPEAN_SOLVE=1 pour l'activer).
@@ -95,7 +96,7 @@ package solitaire
 //     au plus ≈ 12 ms sur l'européen, contre ≈ 94 ms avec 2^20). Ce n'est qu'en cas d'échec qu'on passe aux
 //     redémarrages à ordre aléatoire (copie mélangée Game.shuffled, allouée à la demande, budget 4096 puis +3 %).
 //     Si la pagode ou l'ordre des coups change, revérifier que la croix tient dans firstBudget.
-//   - Mesures (bench/bench-v0.1.6.txt, 10 passages) :
+//   - Mesures (bench/bench-v0.1.06.txt, 10 passages) :
 //     croix anglaise ≈ 1,58 ms, 0 octet, 0 allocation (v0.1.5 : ≈ 255 ms +/- 42 %, ≈ 8,6 Mo, 956 allocs ; la v0.1.4
 //     faisait ≈ 1,36 ms) ; NewGame ≈ 1,63 µs (croix) et ≈ 2,02 µs (européen), 4 allocs, 3,4 et 4,3 KiB
 //     (le champ dPag n'agrandit pas Move) ; Solve européen ≈ 1,9 s +/- 95 % (v0.1.5 : ≈ 2,4 s +/- 52 %) :
@@ -120,7 +121,7 @@ package solitaire
 //     (max 3,9 s), 17,2 s avec K = 9, 21,3 s avec K = 10, 63 s avec K = 11 (la construction coûte plus que le gain).
 //     Sur 15 résolutions à graine aléatoire : moyenne ≈ 2,5 s, de 0,07 s à 10,5 s. La queue lourde est réduite
 //     (25 s -> 10 s au pire) mais reste présente : la partie coûteuse est le milieu de la partie, pas la fin.
-//   - Mesures (bench/bench-v0.1.7.txt, 10 passages) : croix anglaise ≈ 1,57 ms, 0 allocation ; NewGame ≈ 1,59 µs (croix)
+//   - Mesures (bench/bench-v0.1.07.txt, 10 passages) : croix anglaise ≈ 1,57 ms, 0 allocation ; NewGame ≈ 1,59 µs (croix)
 //     et ≈ 1,98 µs (européen), 4 allocs, inchangés ; Solve européen ≈ 1,27 s +/- 170 % (v0.1.6 : ≈ 1,89 s +/- 95 %) :
 //     dispersion trop grande pour distinguer les deux versions sur 10 passages. Le benchmark réutilise le même Game,
 //     donc la table n'est construite qu'une fois (première itération) ; ≈ 150 Mo et ≈ 15 800 allocs par résolution
@@ -158,7 +159,7 @@ package solitaire
 //     endgameAfter = 16 tentatives échouées (recherches difficiles ou insolubles).
 //   - Cibles précises (10 graines chacune) : d2 ≈ 90 ms en moyenne, a5 et g5 ≈ 43 ms, d5 ≈ 2,3 s (max 11 s) : d5 reste
 //     difficile.
-//   - Mesures (bench/bench-v0.1.9.txt, 10 passages) : croix anglaise ≈ 1,63 ms, 0 allocation ; NewGame ≈ 1,61 µs
+//   - Mesures (bench/bench-v0.1.09.txt, 10 passages) : croix anglaise ≈ 1,63 ms, 0 allocation ; NewGame ≈ 1,61 µs
 //     (croix) et ≈ 1,98 µs (européen), 4 allocs, inchangés ; Solve européen ≈ 9,42 ms +/- 3 % (v0.1.7 : ≈ 1,27 s
 //     +/- 170 %), ≈ 210 KiB et 4 allocs par résolution (v0.1.7 : ≈ 150 Mo et ≈ 15 800 allocs). Le benchmark réutilise
 //     le même Game (graine qui avance d'une résolution à l'autre), la dispersion est donc faible ici.
@@ -167,4 +168,29 @@ package solitaire
 //   - Tests : guide_test.go (mobilité et isolés contre une référence case par case, y compris sur la grille 8x8 ;
 //     tri des enfants ; solution guidée valide).
 
-const VERSION = "0.1.9"
+// v0.1.10 : énumération des coups par bits, impasses dans un posSet.
+//   - Profil de la v0.1.9 (européen) : 39 % du temps dans la boucle qui teste un à un les ~100 coups avec DoMove
+//     (il n'y en a que quelques-uns de légaux), 25 % dans la map des impasses de Go, 14 % dans le tri des enfants.
+//   - Coups légaux par bits (guide.go) : landing(p, mask) calcule, pour chacune des 4 directions, les cases d'arrivée
+//     (case vide précédée de deux pions, colonnes de bord masquées) ; la table Game.moveIdx (direction, case) donne
+//     le coup. Le coût par nœud ne dépend plus du nombre de coups du plateau. legalMoves restitue les coups légaux
+//     dans l'ordre de validMoves : la 1re tentative garde exactement l'ordre historique (croix : 30 753 nœuds).
+//     Un autre ordre (par direction puis par case) a été essayé : la croix ne tenait plus dans firstBudget (≈ 10 ms).
+//   - Tentatives guidées : les enfants sont énumérés par bits et triés par clé = note << 10 | rang aléatoire ; un rang
+//     par coup est tiré à chaque tentative (Game.rank), à la place de la copie mélangée des coups (Game.shuffled).
+//   - dfs et dfsAnyEnd sont fusionnés (un seul dfs, champ Game.anyEnd) : plus de duplication de la boucle.
+//   - Impasses : map[Position]struct{} remplacée par posSet (adressage ouvert, sondage linéaire, hachage
+//     multiplicatif ; shift mémorisé, reset() sans réallocation). Plein (maxDeadPositions) : vidé.
+//   - moveIdx est rempli à la 1re recherche, pas dans NewGame (qui reste à ≈ 1,6 µs croix, ≈ 2,1 µs européen).
+//   - Mesures rapides : croix ≈ 1,6 ms -> ≈ 0,68 ms, 0 allocation ; Solve européen (benchmark) ≈ 9,4 ms -> ≈ 4,1 ms ;
+//     100 graines indépendantes, européen cible 0 : moyenne ≈ 13,7 ms -> ≈ 6,9 ms, pire cas ≈ 66 ms -> ≈ 47 ms.
+//     Nouveau profil : dfs ≈ 35 %, posSet.has ≈ 30 % (accès aléatoires en mémoire), legalMoves ≈ 12 %, tri ≈ 15 %.
+//   - Tests : énumération par bits identique aux coups légaux de DoMove (y compris sur la grille 8x8) et dans le même
+//     ordre que validMoves ; TestDeadMapAllocatedOnce adapté au posSet.
+//   - Mesures (bench/bench-v0.1.10.txt, 10 passages) : croix anglaise ≈ 674 µs +/- 1 % (v0.1.9 : ≈ 1,63 ms), 0 allocation ;
+//     NewGame ≈ 1,64 µs (croix) et ≈ 2,07 µs (européen), 4 allocs, quasi inchangés (≈ +2 %) ; Solve européen
+//     ≈ 4,10 ms +/- 3 % (v0.1.9 : ≈ 9,42 ms), ≈ 91 KiB et 0 allocation par résolution (v0.1.9 : ≈ 210 KiB, 4 allocs).
+//   - Les fichiers de mesures sont renommés avec un numéro de patch sur 2 chiffres (bench-v0.1.02.txt, ...) : le tri
+//     alphabétique de benchstat suit alors l'ordre des versions (v0.1.10 après v0.1.09).
+
+const VERSION = "0.1.10"

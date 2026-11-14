@@ -304,18 +304,18 @@ func TestDeadMapAllocatedOnce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if g.dead != nil {
-		t.Error("la map ne doit pas être allouée avant la première recherche")
+	if g.dead.slots != nil {
+		t.Error("l'ensemble des impasses ne doit pas être alloué avant la première recherche")
 	}
 
 	// Première recherche : la map est créée puis remplie d'impasses.
 	if err := g.Solve(); err != nil {
 		t.Fatal(err)
 	}
-	if len(g.dead) == 0 {
+	if g.dead.n == 0 {
 		t.Fatal("des impasses auraient dû être mémorisées")
 	}
-	first := reflect.ValueOf(g.dead).Pointer()
+	first := reflect.ValueOf(g.dead.slots).Pointer()
 
 	// Recherches suivantes : même map, aucune allocation (la croix anglaise est résolue dès la 1re tentative,
 	// à ordre de coups fixe).
@@ -327,7 +327,7 @@ func TestDeadMapAllocatedOnce(t *testing.T) {
 	if allocs != 0 {
 		t.Errorf("Solve alloue %v fois après la première recherche, attendu 0", allocs)
 	}
-	if reflect.ValueOf(g.dead).Pointer() != first {
+	if reflect.ValueOf(g.dead.slots).Pointer() != first {
 		t.Error("la map des impasses a été recréée")
 	}
 	checkSolution(t, g)

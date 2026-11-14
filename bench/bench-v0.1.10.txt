@@ -1,0 +1,59 @@
+# solitaire version : 0.1.10
+# date              : 2026-11-14 15:50:34 +01:00
+# git               : 689c829+dirty
+# machine           : DESKTOP-LPJQLRP
+# os/arch           : windows/amd64
+# os                : Microsoft Windows [version 10.0.26300.9974]
+# cpu logiques      : 16 (GOMAXPROCS=16)
+# ram               : 31.7 Go
+# go                : go1.27.4
+#
+goos: windows
+goarch: amd64
+pkg: github.com/xavier268/solitaire
+cpu: Intel(R) Core(TM) i7-10700 CPU @ 2.90GHz
+BenchmarkSolveEnglishCross-16      	    1764	    674489 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSolveEnglishCross-16      	    1749	    673979 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSolveEnglishCross-16      	    1790	    671062 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSolveEnglishCross-16      	    1792	    673084 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSolveEnglishCross-16      	    1792	    673434 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSolveEnglishCross-16      	    1792	    670113 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSolveEnglishCross-16      	    1790	    678224 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSolveEnglishCross-16      	    1750	    675133 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSolveEnglishCross-16      	    1795	    678793 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSolveEnglishCross-16      	    1750	    674925 ns/op	       0 B/op	       0 allocs/op
+BenchmarkNewGameEnglishCross-16    	  726052	      1615 ns/op	    3488 B/op	       4 allocs/op
+BenchmarkNewGameEnglishCross-16    	  769886	      1639 ns/op	    3488 B/op	       4 allocs/op
+BenchmarkNewGameEnglishCross-16    	  739635	      1600 ns/op	    3488 B/op	       4 allocs/op
+BenchmarkNewGameEnglishCross-16    	  703440	      1647 ns/op	    3488 B/op	       4 allocs/op
+BenchmarkNewGameEnglishCross-16    	  757614	      1639 ns/op	    3488 B/op	       4 allocs/op
+BenchmarkNewGameEnglishCross-16    	  740570	      1634 ns/op	    3488 B/op	       4 allocs/op
+BenchmarkNewGameEnglishCross-16    	  742132	      1663 ns/op	    3488 B/op	       4 allocs/op
+BenchmarkNewGameEnglishCross-16    	  757116	      1636 ns/op	    3488 B/op	       4 allocs/op
+BenchmarkNewGameEnglishCross-16    	  773245	      1644 ns/op	    3488 B/op	       4 allocs/op
+BenchmarkNewGameEnglishCross-16    	  709252	      1611 ns/op	    3488 B/op	       4 allocs/op
+BenchmarkNewGameEuropean-16        	  598527	      2027 ns/op	    4416 B/op	       4 allocs/op
+BenchmarkNewGameEuropean-16        	  599017	      2032 ns/op	    4416 B/op	       4 allocs/op
+BenchmarkNewGameEuropean-16        	  589639	      2061 ns/op	    4416 B/op	       4 allocs/op
+BenchmarkNewGameEuropean-16        	  493546	      2319 ns/op	    4416 B/op	       4 allocs/op
+BenchmarkNewGameEuropean-16        	  582758	      2147 ns/op	    4416 B/op	       4 allocs/op
+BenchmarkNewGameEuropean-16        	  600114	      2054 ns/op	    4416 B/op	       4 allocs/op
+BenchmarkNewGameEuropean-16        	  605070	      2066 ns/op	    4416 B/op	       4 allocs/op
+BenchmarkNewGameEuropean-16        	  593454	      2111 ns/op	    4416 B/op	       4 allocs/op
+BenchmarkNewGameEuropean-16        	  565796	      2099 ns/op	    4416 B/op	       4 allocs/op
+BenchmarkNewGameEuropean-16        	  565405	      2076 ns/op	    4416 B/op	       4 allocs/op
+BenchmarkSolveEuropean-16          	     274	   4165708 ns/op	   95853 B/op	       0 allocs/op
+BenchmarkSolveEuropean-16          	     290	   4134189 ns/op	   90564 B/op	       0 allocs/op
+BenchmarkSolveEuropean-16          	     255	   4236955 ns/op	  102995 B/op	       0 allocs/op
+BenchmarkSolveEuropean-16          	     271	   4121040 ns/op	   96914 B/op	       0 allocs/op
+BenchmarkSolveEuropean-16          	     283	   3935046 ns/op	   92804 B/op	       0 allocs/op
+BenchmarkSolveEuropean-16          	     282	   3999700 ns/op	   93133 B/op	       0 allocs/op
+BenchmarkSolveEuropean-16          	     280	   4084850 ns/op	   93799 B/op	       0 allocs/op
+BenchmarkSolveEuropean-16          	     285	   3987730 ns/op	   92153 B/op	       0 allocs/op
+BenchmarkSolveEuropean-16          	     304	   3990860 ns/op	   86394 B/op	       0 allocs/op
+BenchmarkSolveEuropean-16          	     282	   4119082 ns/op	  108007 B/op	       0 allocs/op
+PASS
+ok  	github.com/xavier268/solitaire	48.142s
+?   	github.com/xavier268/solitaire/cmd/benchtable	[no test files]
+?   	github.com/xavier268/solitaire/cmd/sysinfo	[no test files]
+?   	github.com/xavier268/solitaire/cmd/version	[no test files]

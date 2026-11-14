@@ -44,7 +44,7 @@ func TestUndoMoveInvertsDoMove(t *testing.T) {
 }
 
 func TestPosSet(t *testing.T) {
-	s := newPosSet()
+	s := newPosSet(10)
 	rng := rand.New(rand.NewPCG(5, 6))
 	ref := map[Position]bool{}
 	for i := 0; i < 20000; i++ {

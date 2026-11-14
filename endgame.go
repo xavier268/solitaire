@@ -16,18 +16,23 @@ import "math/bits"
 // construction (≈ 2 s) dépasse le gain. Au-delà de K = 8 le gain ne progresse plus.
 const maxEndgame = 1 << 18
 
-// posSet est un ensemble de positions non nulles : table de hachage à adressage ouvert, sans allocation
-// à la consultation. 0 marque une case vide (une position résoluble n'est jamais vide).
+// posSet est un ensemble de positions non nulles : table de hachage à adressage ouvert (sondage linéaire), sans
+// allocation à la consultation. 0 marque une case vide (une position résoluble ou perdante n'est jamais vide).
+// Sert à la table de fins de partie et à la mémorisation des impasses (plus rapide que map[Position]struct{}).
 type posSet struct {
 	slots []Position // taille : puissance de 2, charge <= 1/2
 	n     int        // nombre de positions stockées
+	shift uint       // 64 - log2(len(slots)) : le hachage garde les bits de poids fort
 }
 
-func newPosSet() posSet { return posSet{slots: make([]Position, 1<<10)} }
+// newPosSet crée un ensemble de 2^log2 cases (log2 >= 1).
+func newPosSet(log2 uint) posSet {
+	return posSet{slots: make([]Position, 1<<log2), shift: 64 - log2}
+}
 
 // index renvoie la case de départ de la sonde pour p (hachage multiplicatif de Fibonacci).
 func (s *posSet) index(p Position) int {
-	return int((uint64(p) * 0x9E3779B97F4A7C15) >> (64 - bits.Len(uint(len(s.slots)-1))))
+	return int((uint64(p) * 0x9E3779B97F4A7C15) >> s.shift)
 }
 
 // has renvoie true si p est dans l'ensemble.
@@ -64,12 +69,19 @@ func (s *posSet) add(p Position) {
 func (s *posSet) grow() {
 	old := s.slots
 	s.slots = make([]Position, 2*len(old))
+	s.shift--
 	s.n = 0
 	for _, p := range old {
 		if p != 0 {
 			s.add(p)
 		}
 	}
+}
+
+// reset vide l'ensemble en conservant sa mémoire.
+func (s *posSet) reset() {
+	clear(s.slots)
+	s.n = 0
 }
 
 // buildEndgame construit la table de fins de partie (g.endgame, g.endgameK). anyEnd indique si la cible 0
@@ -86,7 +98,7 @@ func (g *Game) buildEndgame(anyEnd bool) {
 	}
 	startPegs := bits.OnesCount64(uint64(g.startPos))
 
-	cur := newPosSet()
+	cur := newPosSet(10)
 	k := 1
 	if g.endPos != 0 {
 		cur.add(g.endPos)
@@ -102,7 +114,7 @@ func (g *Game) buildEndgame(anyEnd bool) {
 	}
 
 	for k+1 < startPegs { // la table ne sert que si le départ a plus de pions qu'elle
-		next := newPosSet()
+		next := newPosSet(10)
 		overflow := false
 		for _, q := range cur.slots {
 			if q == 0 {
