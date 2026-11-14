@@ -1,0 +1,43 @@
+# https://taskfile.dev
+version: "3"
+
+vars:
+  VERSION:
+    sh: go run ./cmd/version
+  BENCH_FILE: bench/bench-v{{.VERSION}}.txt
+
+tasks:
+  default:
+    desc: Liste les tâches disponibles
+    cmds:
+      - task --list
+    silent: true
+
+  build:
+    desc: Compile le package et les commandes
+    cmds:
+      - go build ./...
+
+  test:
+    desc: Lance les tests
+    cmds:
+      - go test -count=1 ./...
+
+  cover:
+    desc: Lance les tests avec couverture (résumé par fonction)
+    cmds:
+      - go test -count=1 -coverprofile=coverage.out ./...
+      - go tool cover -func=coverage.out
+
+  cover:html:
+    desc: Rapport de couverture HTML (ouvert dans le navigateur)
+    deps: [cover]
+    cmds:
+      - go tool cover -html=coverage.out
+
+  bench:
+    desc: Lance les benchmarks et sauve les résultats dans bench/bench-v<VERSION>.txt
+    cmds:
+      - go run ./cmd/sysinfo > {{.BENCH_FILE}}
+      - go test -run '^$' -bench . -benchmem -count=5 ./... >> {{.BENCH_FILE}}
+      - echo "Résultats (version {{.VERSION}}) sauvés dans {{.BENCH_FILE}}"

@@ -112,3 +112,31 @@ func TestRenderFormat(t *testing.T) {
 		t.Errorf("Render =\n%s\nattendu\n%s", got, want)
 	}
 }
+
+func TestStartPositions(t *testing.T) {
+	tests := []struct {
+		name  string
+		start Position
+		mask  Position
+		hole  Point
+		pegs  int
+	}{
+		{"5x5", START_5x5, MASK_5x5, Point{2, 2}, 24},
+		{"croix anglaise", START_ENGLISHCROSS, MASK_ENGLISHCROSS, Point{3, 3}, 32},
+	}
+	for _, tc := range tests {
+		t.Logf("START %s :\n%s", tc.name, tc.start.Render(tc.mask))
+		if tc.start&^tc.mask != 0 {
+			t.Errorf("%s : pion hors du mask", tc.name)
+		}
+		if n := bits.OnesCount64(uint64(tc.start)); n != tc.pegs {
+			t.Errorf("%s : %d pions, attendu %d", tc.name, n, tc.pegs)
+		}
+		if tc.start&tc.hole.Bit() != 0 {
+			t.Errorf("%s : le trou %v doit être vide", tc.name, tc.hole)
+		}
+		if tc.start|tc.hole.Bit() != tc.mask {
+			t.Errorf("%s : doit être le mask moins le trou %v", tc.name, tc.hole)
+		}
+	}
+}

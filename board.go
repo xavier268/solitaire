@@ -47,6 +47,18 @@ const (
 	MASK_ENGLISHCROSS Position = 0x001C1C7F7F7F1C1C
 )
 
+// Positions de départ : le mask complet, privé de sa case centrale.
+// (Le 8x8 n'a pas de case centrale unique, il n'a donc pas de position de départ.)
+const (
+	// START_5x5 : 24 pions, trou en (ligne 2, colonne 2) soit c3.
+	CENTER_5x5 Position = (1 << (2*8 + 2))
+	START_5x5  Position = MASK_5x5 &^ CENTER_5x5
+
+	// START_ENGLISHCROSS : 32 pions, trou en (ligne 3, colonne 3) soit d4.
+	CENTER_ENGLISHCROSS Position = (1 << (3*8 + 3))
+	START_ENGLISHCROSS  Position = MASK_ENGLISHCROSS &^ CENTER_ENGLISHCROSS
+)
+
 // Affiche une position. Utilise le mask fourni pour délimiter la surface jouable.
 func (p Position) Print(mask Position) {
 	p &= mask

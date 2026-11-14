@@ -1,0 +1,17 @@
+goos: windows
+goarch: amd64
+pkg: github.com/xavier268/solitaire
+cpu: Intel(R) Core(TM) i7-10700 CPU @ 2.90GHz
+BenchmarkSolveEnglishCross-16      	       3	 475002500 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSolveEnglishCross-16      	       3	 474374600 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSolveEnglishCross-16      	       3	 489347567 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSolveEnglishCross-16      	       3	 472791833 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSolveEnglishCross-16      	       3	 488556967 ns/op	       0 B/op	       0 allocs/op
+BenchmarkNewGameEnglishCross-16    	  800692	      1586 ns/op	    6376 B/op	       9 allocs/op
+BenchmarkNewGameEnglishCross-16    	  856658	      1523 ns/op	    6376 B/op	       9 allocs/op
+BenchmarkNewGameEnglishCross-16    	  843235	      1614 ns/op	    6376 B/op	       9 allocs/op
+BenchmarkNewGameEnglishCross-16    	  829302	      1558 ns/op	    6376 B/op	       9 allocs/op
+BenchmarkNewGameEnglishCross-16    	  783969	      1595 ns/op	    6376 B/op	       9 allocs/op
+PASS
+ok  	github.com/xavier268/solitaire	14.134s
+?   	github.com/xavier268/solitaire/cmd/version	[no test files]
