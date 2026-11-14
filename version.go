@@ -129,4 +129,42 @@ package solitaire
 //     d'une vraie solution toujours présentes).
 //   - Pistes : symétries du plateau (clés canoniques des impasses), ordre des coups guidé.
 
-const VERSION = "0.1.7"
+// v0.1.8 : essai des symétries du plateau, abandonné (code retiré, comportement identique à la v0.1.7).
+//   - Idée : si le mask (et la cible) est invariant par une symétrie du carré (jusqu'à 8 : miroirs, rotations,
+//     transposition), une position est perdante si et seulement si ses images le sont. On rangeait les impasses et la
+//     table de fins de partie sous forme canonique (minimum des images, calculé avec des opérations sur les bits sur la
+//     boîte englobante du mask). Seules les symétries qui conservent exactement le mask et la cible étaient retenues
+//     (testé dans NewGame) : européen, croix, 5x5 : 8 ; rectangle 3x5 : 4 ; mask asymétrique ou cible g5 : 1 (aucune réduction).
+//   - Résultat : aucun gain. Européen cible 0, 12 graines fixes : 16,5 s sans symétries (K = 8), 20,6 s avec symétries
+//     sur la table et les impasses, 15,7 s avec symétries sur la table seule (dans le bruit). Mettre les impasses sous
+//     forme canonique ralentit quel que soit le seuil de pions testé (0, 14, 20, 26, 64) : le calcul de la forme
+//     canonique à chaque nœud (≈ 20 ns) coûte plus que le partage des impasses n'économise. La croix passait de ≈ 1,6 ms
+//     à ≈ 2,25 ms, et NewGame de ≈ +0,2 µs.
+//   - Pistes restantes : ordre des coups guidé (moins de pions isolés, plus de paires voisines), avec tirage aléatoire.
+
+// v0.1.9 : ordre des coups guidé (guide.go).
+//   - À chaque nœud d'une tentative aléatoire, on construit les positions enfants, on les note et on essaie les
+//     meilleures d'abord (tri par insertion stable, sans allocation : zone de travail par profondeur, allouée une fois).
+//     L'ordre mélangé de la tentative départage les égalités, donc les redémarrages restent différents.
+//   - Note = mobilité (nombre de coups légaux depuis la position enfant, par opérations sur les bits : 4 directions,
+//     colonnes de bord masquées) - 2 x pions isolés (sans voisin orthogonal). La 1re tentative (ordre fixe, qui
+//     résout la croix en ≈ 1,6 ms) n'est PAS guidée : la guider rendait la croix bien plus lente (≈ 280 ms).
+//   - Mesures sur l'européen cible 0 (12 graines fixes, avant et après) : ordre mélangé seul 16,5 s au total ;
+//     pions isolés seuls 13,3 s ; mobilité seule 0,66 s ; mobilité - 4 x isolés 0,52 s ; poids des isolés de 0 à 16 :
+//     0,54 à 0,70 s (peu sensible, la mobilité est ce qui compte). L'inverse (peu de coups d'abord, Warnsdorff) ne
+//     termine pas. 100 graines : en moyenne ≈ 14 ms, au pire ≈ 66 ms (v0.1.7 : ≈ 2,5 s en moyenne, jusqu'à 10 s).
+//   - La table de fins de partie n'est plus utile en général : avec l'ordre guidé elle coûte (≈ 35 ms de construction)
+//     plus qu'elle ne rapporte (≈ 49 ms de moyenne avec, ≈ 13 ms sans). Elle n'est donc construite qu'après
+//     endgameAfter = 16 tentatives échouées (recherches difficiles ou insolubles).
+//   - Cibles précises (10 graines chacune) : d2 ≈ 90 ms en moyenne, a5 et g5 ≈ 43 ms, d5 ≈ 2,3 s (max 11 s) : d5 reste
+//     difficile.
+//   - Mesures (bench/bench-v0.1.9.txt, 10 passages) : croix anglaise ≈ 1,63 ms, 0 allocation ; NewGame ≈ 1,61 µs
+//     (croix) et ≈ 1,98 µs (européen), 4 allocs, inchangés ; Solve européen ≈ 9,42 ms +/- 3 % (v0.1.7 : ≈ 1,27 s
+//     +/- 170 %), ≈ 210 KiB et 4 allocs par résolution (v0.1.7 : ≈ 150 Mo et ≈ 15 800 allocs). Le benchmark réutilise
+//     le même Game (graine qui avance d'une résolution à l'autre), la dispersion est donc faible ici.
+//   - Le coût restant sur l'européen est la 1re tentative à ordre fixe (budget 2^17 nœuds, ≈ 12 ms) : abaisser
+//     firstBudget réduirait la moyenne, au prix de la marge de la croix (30 753 nœuds).
+//   - Tests : guide_test.go (mobilité et isolés contre une référence case par case, y compris sur la grille 8x8 ;
+//     tri des enfants ; solution guidée valide).
+
+const VERSION = "0.1.9"

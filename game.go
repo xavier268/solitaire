@@ -32,6 +32,8 @@ type Game struct {
 	nodes    int    // nœuds explorés pendant la tentative en cours
 	budget   int    // nombre maximal de nœuds de la tentative en cours
 	aborted  bool   // vrai si la tentative en cours a épuisé son budget
+	guided   bool   // la tentative en cours trie les coups par évaluation (voir guide.go)
+	scratch  []cand // zone de travail du tri, une tranche par profondeur (allouée à la demande)
 
 	// Table de fins de partie (voir endgame.go) : positions à endgameK pions qui atteignent la cible.
 	// Construite à la demande, la première fois que la tentative à ordre fixe échoue.
@@ -48,6 +50,9 @@ const firstBudget = 1 << 17
 // initialBudget est le budget de la première tentative aléatoire ; il croît de 3 % à chaque redémarrage
 // (ce qui garantit la terminaison).
 const initialBudget = 1 << 12
+
+// endgameAfter : nombre de tentatives échouées après lequel la table de fins de partie est construite.
+const endgameAfter = 16
 
 // maxDeadPositions borne la mémoire de la map des impasses (environ 100 Mo au maximum).
 // Quand elle est pleine, elle est vidée (la recherche reste correcte, mais perd ses impasses).
@@ -143,7 +148,9 @@ func (g *Game) search(run func(Position, int32) bool, anyEnd bool) error {
 		g.rng = rand.New(rand.NewPCG(g.seed[0], g.seed[1]))
 	}
 	g.moves = g.validMoves
+	g.guided = false
 	budget := firstBudget
+	attempts := 0
 	for {
 		g.nodes, g.budget, g.aborted = 0, budget, false
 		if run(g.startPos, g.pag.value(g.startPos)) { // la pagode du départ est calculée une seule fois
@@ -154,8 +161,10 @@ func (g *Game) search(run func(Position, int32) bool, anyEnd bool) error {
 			return fmt.Errorf("aucune solution entre la position de départ et la position cible")
 		}
 
-		// La tentative à ordre fixe a échoué : la recherche est dure, on construit la table de fins de partie.
-		if !g.endgameBuilt && !g.endgameOff {
+		// La recherche est dure (beaucoup de tentatives échouées) : on construit la table de fins de partie.
+		// Avec l'ordre guidé, les résolutions courantes n'en ont pas besoin, et sa construction coûte plus que le gain.
+		attempts++
+		if attempts >= endgameAfter && !g.endgameBuilt && !g.endgameOff {
 			g.endgameBuilt = true
 			g.buildEndgame(anyEnd)
 		}
@@ -173,6 +182,7 @@ func (g *Game) search(run func(Position, int32) bool, anyEnd bool) error {
 			g.shuffled[i], g.shuffled[j] = g.shuffled[j], g.shuffled[i]
 		})
 		g.moves = g.shuffled
+		g.guided = true // guidage des tentatives aléatoires
 	}
 }
 
@@ -220,6 +230,25 @@ func (g *Game) dfsAnyEnd(curr Position, pag int32) bool {
 	// Impasse déjà rencontrée par un autre chemin : inutile de la réexplorer.
 	if _, lost := g.dead[curr]; lost {
 		return false
+	}
+
+	if g.guided {
+		buf := g.scratchFor(len(g.solution))
+		if n := g.sortedChildren(curr, buf); n >= 0 {
+			for i := range n {
+				c := &buf[i]
+				g.solution = append(g.solution, c.next)
+				if g.dfsAnyEnd(c.next, pag+c.dPag) {
+					return true
+				}
+				g.solution = g.solution[:len(g.solution)-1] // backtrack
+				if g.aborted {
+					return false
+				}
+			}
+			g.markDead(curr)
+			return false
+		}
 	}
 
 	for _, m := range g.moves {
@@ -270,6 +299,25 @@ func (g *Game) dfs(curr Position, pag int32) bool {
 	// Impasse déjà rencontrée par un autre chemin : inutile de la réexplorer.
 	if _, lost := g.dead[curr]; lost {
 		return false
+	}
+
+	if g.guided {
+		buf := g.scratchFor(len(g.solution))
+		if n := g.sortedChildren(curr, buf); n >= 0 {
+			for i := range n {
+				c := &buf[i]
+				g.solution = append(g.solution, c.next)
+				if g.dfs(c.next, pag+c.dPag) {
+					return true
+				}
+				g.solution = g.solution[:len(g.solution)-1] // backtrack
+				if g.aborted {
+					return false
+				}
+			}
+			g.markDead(curr)
+			return false
+		}
 	}
 
 	for _, m := range g.moves {
