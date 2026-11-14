@@ -9,8 +9,10 @@ import (
 type Move struct {
 	from  Point    // case de départ
 	to    Point    // case d'arrivée
+	dPag  int32    // variation de la pagode causée par ce move : w(to) - w(from) - w(saut), <= 0 (voir initPagoda)
 	mask3 Position // les 3 cases adjacentes alignées concernées
 	mask2 Position // les 2 cases qui doivent être à 1 (la 3ème etant à zero).
+	// Ordre des champs : dPag occupe le remplissage après from et to, Move reste à 24 octets.
 }
 
 func (m Move) String() string {

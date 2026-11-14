@@ -59,7 +59,7 @@ func abs(x int) int {
 // Seuil : somme des poids de endPos ; si endPos == 0 (une seule bille, n'importe où),
 // le plus petit poids d'une case du mask.
 //
-// Par sécurité, la condition de pagode est vérifiée sur tous les coups du jeu : une erreur est renvoyée
+// Par sécurité, la condition de pagode est vérifiée sur tous les coups du jeu (et leur dPag est renseigné) : une erreur est renvoyée
 // si elle est violée (formule de poids fausse), plutôt que d'élaguer à tort.
 func (g *Game) initPagoda() error {
 	ref := g.endPos
@@ -105,12 +105,16 @@ func (g *Game) initPagoda() error {
 		g.pag.threshold = g.pag.value(g.endPos)
 	}
 
-	// Contrôle de la condition de pagode sur tous les coups : w(from) + w(milieu) >= w(to).
-	for _, m := range g.validMoves {
+	// Variation de pagode de chaque coup, calculée une fois pour toutes et stockée dans le Move :
+	// dPag = w(to) - w(from) - w(saut). La condition de pagode w(from) + w(saut) >= w(to) équivaut à dPag <= 0 ;
+	// elle est contrôlée sur tous les coups. La recherche met alors la pagode à jour en O(1) par coup.
+	for i := range g.validMoves {
+		m := &g.validMoves[i]
 		from, to := int(BitIndex(m.from)), int(BitIndex(m.to))
 		mid := (from + to) / 2 // la case sautée est au milieu (même ligne ou même colonne)
-		if g.pag.weight[from]+g.pag.weight[mid] < g.pag.weight[to] {
-			return fmt.Errorf("pagode : condition violée pour le coup %s", m)
+		m.dPag = g.pag.weight[to] - g.pag.weight[from] - g.pag.weight[mid]
+		if m.dPag > 0 {
+			return fmt.Errorf("pagode : condition violée pour le coup %s", *m)
 		}
 	}
 	return nil

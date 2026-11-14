@@ -79,3 +79,27 @@ func TestPagodaAcceptsKnownGames(t *testing.T) {
 		t.Errorf("européen : %v", err)
 	}
 }
+
+// La valeur de pagode mise à jour par Move.dPag doit égaler la valeur recalculée depuis la position.
+func TestPagodaDelta(t *testing.T) {
+	g, err := NewGame(MASK_EUROPEAN, START_EUROPEAN, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	curr, val := g.startPos, g.pag.value(g.startPos)
+	for step := 0; step < 35; step++ {
+		moved := false
+		for _, m := range g.validMoves {
+			if next := curr.DoMove(m); next != 0 {
+				curr, val, moved = next, val+m.dPag, true
+				break
+			}
+		}
+		if !moved {
+			break
+		}
+		if want := g.pag.value(curr); val != want {
+			t.Fatalf("étape %d : pagode incrémentale %d, recalculée %d", step, val, want)
+		}
+	}
+}

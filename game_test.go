@@ -317,12 +317,15 @@ func TestDeadMapAllocatedOnce(t *testing.T) {
 	}
 	first := reflect.ValueOf(g.dead).Pointer()
 
-	// Recherches suivantes : même map (l'ordre des coups est aléatoire, donc la map peut encore grossir
-	// et réallouer ses buckets en interne, mais elle n'est jamais recréée).
-	for range 5 {
+	// Recherches suivantes : même map, aucune allocation (la croix anglaise est résolue dès la 1re tentative,
+	// à ordre de coups fixe).
+	allocs := testing.AllocsPerRun(5, func() {
 		if err := g.Solve(); err != nil {
 			t.Fatal(err)
 		}
+	})
+	if allocs != 0 {
+		t.Errorf("Solve alloue %v fois après la première recherche, attendu 0", allocs)
 	}
 	if reflect.ValueOf(g.dead).Pointer() != first {
 		t.Error("la map des impasses a été recréée")

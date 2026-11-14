@@ -82,4 +82,23 @@ package solitaire
 //     allocation (≈ 2000 à 3000 allocs, 17 à 27 Mo : la map grossit). NewGame passe à ≈ 2,3 µs, 4 allocs
 //     (pagode, générateur aléatoire). Les mesures de référence sont à refaire avec task bench.
 
-const VERSION = "0.1.5"
+// v0.1.6 : pagode calculée par deltas, et première tentative à ordre fixe.
+//   - Move.dPag : variation de pagode du coup, w(to) - w(from) - w(saut), calculée une fois pour toutes par
+//     initPagoda (la condition de pagode équivaut à dPag <= 0). Le champ est placé dans le remplissage
+//     de la structure : Move reste à 24 octets (placé en dernier, il la faisait passer à 32 octets et
+//     augmentait de 33 % la mémoire de NewGame).
+//   - dfs et dfsAnyEnd reçoivent la valeur de pagode de la position et la mettent à jour par une addition
+//     (pag + m.dPag) au lieu de resommer les poids de tous les pions à chaque nœud ; la pagode du départ
+//     n'est calculée qu'une fois par recherche.
+//   - search : la 1re tentative utilise l'ordre fixe des coups (Game.validMoves, jamais modifié) avec un
+//     budget de 2^17 = 131 072 nœuds (la croix en utilise 30 753, soit une marge ≈ 4 ; la tentative coûte
+//     au plus ≈ 12 ms sur l'européen, contre ≈ 94 ms avec 2^20). Ce n'est qu'en cas d'échec qu'on passe aux
+//     redémarrages à ordre aléatoire (copie mélangée Game.shuffled, allouée à la demande, budget 4096 puis +3 %).
+//     Si la pagode ou l'ordre des coups change, revérifier que la croix tient dans firstBudget.
+//   - Mesures (bench/bench-v0.1.6.txt, 10 passages) :
+//     croix anglaise ≈ 1,58 ms, 0 octet, 0 allocation (v0.1.5 : ≈ 255 ms +/- 42 %, ≈ 8,6 Mo, 956 allocs ; la v0.1.4
+//     faisait ≈ 1,36 ms) ; NewGame ≈ 1,63 µs (croix) et ≈ 2,02 µs (européen), 4 allocs, 3,4 et 4,3 KiB
+//     (le champ dPag n'agrandit pas Move) ; Solve européen ≈ 1,9 s +/- 95 % (v0.1.5 : ≈ 2,4 s +/- 52 %) :
+//     la dispersion est telle que les deux versions ne sont pas distinguables, ce temps dépend surtout de la graine.
+
+const VERSION = "0.1.6"

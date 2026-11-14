@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"math/bits"
 	"math/rand/v2"
+	"slices"
 )
 
 type Game struct {
 	startPos   Position // Start position
 	maskPos    Position // Board limit
 	endPos     Position // Target end position
-	validMoves []Move   // List of valid moves (ordre mélangé à chaque tentative de recherche)
+	validMoves []Move   // List of valid moves (ordre fixe, jamais modifié après NewGame)
 	solution   []Position
 
 	// Positions déjà explorées sans succès (impasses), pour ne jamais les explorer deux fois.
@@ -24,14 +25,21 @@ type Game struct {
 	// Recherche à redémarrages : l'ordre des coups est mélangé à chaque tentative, avec un budget de nœuds
 	// qui croît lentement à chaque échec. seed est tirée au hasard à chaque NewGame (et conservée pour reproduire
 	// un comportement) ; rng est le générateur qui en dérive.
-	seed    [2]uint64
-	rng     *rand.Rand
-	nodes   int  // nœuds explorés pendant la tentative en cours
-	budget  int  // nombre maximal de nœuds de la tentative en cours
-	aborted bool // vrai si la tentative en cours a épuisé son budget
+	seed     [2]uint64
+	rng      *rand.Rand
+	moves    []Move // coups utilisés par la tentative en cours : validMoves (1re tentative) ou shuffled
+	shuffled []Move // copie de validMoves mélangée, allouée à la première tentative aléatoire seulement
+	nodes    int    // nœuds explorés pendant la tentative en cours
+	budget   int    // nombre maximal de nœuds de la tentative en cours
+	aborted  bool   // vrai si la tentative en cours a épuisé son budget
 }
 
-// initialBudget est le budget de nœuds de la première tentative ; il croît de 3 % à chaque redémarrage (ce qui garantit la terminaison).
+// firstBudget est le budget de nœuds de la première tentative, faite avec l'ordre fixe des coups (ordre de AllMoves) :
+// c'est très rapide sur la croix anglaise (30 753 nœuds en ordre fixe, soit une marge d'environ 4). Si elle échoue, on passe aux tentatives à ordre aléatoire.
+const firstBudget = 1 << 17
+
+// initialBudget est le budget de la première tentative aléatoire ; il croît de 3 % à chaque redémarrage
+// (ce qui garantit la terminaison).
 const initialBudget = 1 << 12
 
 // maxDeadPositions borne la mémoire de la map des impasses (environ 100 Mo au maximum).
@@ -74,7 +82,7 @@ func NewGame(maskPos Position, startPos Position, endPos Position) (Game, error)
 		maskPos:    maskPos,
 		endPos:     endPos,
 		validMoves: moves,
-		solution:   make([]Position, 0, maxMoves), // vide, capacité = nombre max de coups
+		solution:   make([]Position, 0, maxMoves),           // vide, capacité = nombre max de coups
 		seed:       [2]uint64{rand.Uint64(), rand.Uint64()}, // graine renouvelée à chaque NewGame
 	}
 	g.rng = rand.New(rand.NewPCG(g.seed[0], g.seed[1]))
@@ -114,29 +122,44 @@ func (g *Game) markDead(p Position) {
 	g.dead[p] = struct{}{}
 }
 
-// search lance le DFS donné (dfs ou dfsAnyEnd) avec redémarrages : à chaque tentative, l'ordre des coups
-// est mélangé et le nombre de nœuds est borné ; le budget croît lentement (+3 %) après chaque tentative interrompue : beaucoup de redémarrages courts valent mieux qu un budget qui double (queue lourde des temps de recherche).
+// search lance le DFS donné (dfs ou dfsAnyEnd) avec redémarrages et budget de nœuds.
+// 1re tentative : ordre fixe des coups, budget firstBudget (rapide quand l'ordre fixe convient, comme la croix anglaise).
+// Ensuite : à chaque tentative, l'ordre des coups est mélangé (graine du Game) ; le budget croît lentement (+3 %) :
+// beaucoup de redémarrages courts valent mieux qu'un budget qui double (queue lourde des temps de recherche).
 // Les impasses mémorisées restent valables d'une tentative à l'autre (elles ne sont marquées qu'après une
 // exploration complète). Une tentative qui se termine sans épuiser son budget et sans succès prouve
 // qu'il n'y a pas de solution.
-func (g *Game) search(run func(Position) bool) error {
+func (g *Game) search(run func(Position, int32) bool) error {
 	g.solution = g.solution[:0]
 	g.resetDead()
 	if g.rng == nil { // Game construit sans NewGame
 		g.rng = rand.New(rand.NewPCG(g.seed[0], g.seed[1]))
 	}
-	for budget := initialBudget; ; budget += budget / 32 {
-		g.rng.Shuffle(len(g.validMoves), func(i, j int) {
-			g.validMoves[i], g.validMoves[j] = g.validMoves[j], g.validMoves[i]
-		})
+	g.moves = g.validMoves
+	budget := firstBudget
+	for {
 		g.nodes, g.budget, g.aborted = 0, budget, false
-		if run(g.startPos) {
+		if run(g.startPos, g.pag.value(g.startPos)) { // la pagode du départ est calculée une seule fois
 			return nil
 		}
 		g.solution = g.solution[:0]
 		if !g.aborted {
 			return fmt.Errorf("aucune solution entre la position de départ et la position cible")
 		}
+
+		// Tentative suivante : ordre des coups mélangé.
+		if g.shuffled == nil {
+			g.shuffled = slices.Clone(g.validMoves)
+		}
+		if budget == firstBudget {
+			budget = initialBudget
+		} else {
+			budget += budget / 32
+		}
+		g.rng.Shuffle(len(g.shuffled), func(i, j int) {
+			g.shuffled[i], g.shuffled[j] = g.shuffled[j], g.shuffled[i]
+		})
+		g.moves = g.shuffled
 	}
 }
 
@@ -157,8 +180,8 @@ func (g *Game) SolveAnyEnd() error {
 	return g.search(g.dfsAnyEnd)
 }
 
-// dfsAnyEnd : comme dfs, mais avec endPos == 0 le but est d'atteindre un seul pion.
-func (g *Game) dfsAnyEnd(curr Position) bool {
+// dfsAnyEnd : comme dfs (pag est la valeur de pagode de curr, mise à jour avec Move.dPag), mais avec endPos == 0 le but est d'atteindre un seul pion.
+func (g *Game) dfsAnyEnd(curr Position, pag int32) bool {
 
 	if curr == g.endPos || (g.endPos == 0 && bits.OnesCount64(uint64(curr)) == 1) {
 		return true
@@ -172,7 +195,7 @@ func (g *Game) dfsAnyEnd(curr Position) bool {
 	}
 
 	// Pagode : la position ne peut plus atteindre la cible, inutile d'aller plus loin.
-	if !g.pag.ok(curr) {
+	if pag < g.pag.threshold {
 		return false
 	}
 
@@ -181,13 +204,13 @@ func (g *Game) dfsAnyEnd(curr Position) bool {
 		return false
 	}
 
-	for _, m := range g.validMoves {
+	for _, m := range g.moves {
 		next := curr.DoMove(m)
 		if next == 0 { // move illégal depuis cette position
 			continue
 		}
 		g.solution = append(g.solution, next)
-		if g.dfsAnyEnd(next) {
+		if g.dfsAnyEnd(next, pag+m.dPag) {
 			return true
 		}
 		g.solution = g.solution[:len(g.solution)-1] // backtrack
@@ -203,7 +226,7 @@ func (g *Game) dfsAnyEnd(curr Position) bool {
 // Recursive depth-first exploration, with backtracking.
 // Renvoie true dès que la cible est atteinte ; g.solution contient alors le chemin parcouru.
 // Pas d'allocation : solution a été créée avec la capacité maximale (un pion retiré par coup).
-func (g *Game) dfs(curr Position) bool {
+func (g *Game) dfs(curr Position, pag int32) bool {
 
 	if curr == g.endPos {
 		return true
@@ -217,7 +240,7 @@ func (g *Game) dfs(curr Position) bool {
 	}
 
 	// Pagode : la position ne peut plus atteindre la cible, inutile d'aller plus loin.
-	if !g.pag.ok(curr) {
+	if pag < g.pag.threshold {
 		return false
 	}
 
@@ -226,13 +249,13 @@ func (g *Game) dfs(curr Position) bool {
 		return false
 	}
 
-	for _, m := range g.validMoves {
+	for _, m := range g.moves {
 		next := curr.DoMove(m)
 		if next == 0 { // move illégal depuis cette position
 			continue
 		}
 		g.solution = append(g.solution, next)
-		if g.dfs(next) {
+		if g.dfs(next, pag+m.dPag) {
 			return true
 		}
 		g.solution = g.solution[:len(g.solution)-1] // backtrack
