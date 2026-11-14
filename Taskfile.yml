@@ -44,8 +44,13 @@ tasks:
       - task: bench:stat
 
   bench:stat:
-    desc: Compare avec benchstat tous les fichiers bench/bench-v*.txt, affiche et sauve dans bench/bench-stats.txt
+    desc: Compare avec benchstat tous les fichiers bench/bench-v*.txt, affiche et sauve dans bench/bench-stats.md
     cmds:
-      - benchstat bench/bench-v*.txt > bench/bench-stats.txt
+      # Le tableau benchstat est dans un bloc de code : sinon le rendu Markdown écrase l'alignement des colonnes.
+      - echo '# Comparaison des benchmarks (benchstat)' > bench/bench-stats.md
+      - echo '' >> bench/bench-stats.md
+      - echo '```text' >> bench/bench-stats.md
+      - benchstat bench/bench-v*.txt >> bench/bench-stats.md
+      - echo '```' >> bench/bench-stats.md
       - benchstat bench/bench-v*.txt
-      - echo "Comparaison sauvée dans bench/bench-stats.txt"
+      - echo "Comparaison sauvée dans bench/bench-stats.md"

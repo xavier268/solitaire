@@ -1,12 +1,15 @@
+# Comparaison des benchmarks (benchstat)
+
+```text
 goos: windows
 goarch: amd64
 pkg: github.com/xavier268/solitaire
 cpu: Intel(R) Core(TM) i7-10700 CPU @ 2.90GHz
                        │ bench\bench-v0.1.0.txt │       bench\bench-v0.1.1.txt        │
                        │         sec/op         │    sec/op     vs base               │
-SolveEnglishCross-16               475.0m ± ∞ ¹   469.5m ± ∞ ¹        ~ (p=0.056 n=5)
-NewGameEnglishCross-16            1586.0n ± ∞ ¹   866.5n ± ∞ ¹  -45.37% (p=0.008 n=5)
-geomean                            868.0µ         637.8µ        -26.51%
+SolveEnglishCross-16               475.0m ± ∞ ¹   470.5m ± ∞ ¹        ~ (p=0.095 n=5)
+NewGameEnglishCross-16            1586.0n ± ∞ ¹   876.0n ± ∞ ¹  -44.77% (p=0.008 n=5)
+geomean                            868.0µ         642.0µ        -26.03%
 ¹ need >= 6 samples for confidence interval at level 0.95
 
                        │ bench\bench-v0.1.0.txt │         bench\bench-v0.1.1.txt         │
@@ -25,3 +28,4 @@ geomean                                       ³                -52.86%         
 ¹ need >= 6 samples for confidence interval at level 0.95
 ² all samples are equal
 ³ summaries must be >0 to compute geomean
+```
