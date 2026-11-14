@@ -61,4 +61,25 @@ package solitaire
 //     son benchmark reste désactivé par défaut. Pistes : ordre de coups aléatoire avec redémarrages
 //     et budget de nœuds, ou meilleure heuristique d'ordre.
 
-const VERSION = "0.1.4"
+// v0.1.5 : élagage par fonction de pagode (pagoda.go).
+//   - Game.pag : poids entiers par case (Fibonacci de la distance de Manhattan au centre) tels que pour
+//     tout coup A saute B vers C, w(A)+w(B) >= w(C) : la somme des poids des pions ne fait que décroître.
+//   - Centre : case la plus proche du barycentre de la cible, ou du mask si la cible est 0.
+//     Seuil : poids de la cible, ou plus petit poids du mask si la cible est 0.
+//   - initPagoda (privée) est appelée par NewGame, qui vérifie aussi la pagode du départ ;
+//     elle contrôle la condition de pagode sur tous les coups du jeu.
+//   - dfs et dfsAnyEnd rejettent immédiatement toute position sous le seuil (fail early).
+//   - L'élagage seul ne suffit pas pour l'européen (cible 0 ou cibles précises d2, a5, d5, g5 : plus de 75 s).
+//   - Recherche à redémarrages (Game.search, utilisée par Solve et SolveAnyEnd) : l'ordre des coups est mélangé
+//     à chaque tentative, avec un budget de nœuds (4096, +3 % par redémarrage pour garantir la terminaison).
+//     Une tentative interrompue ne marque aucune impasse ; les impasses déjà prouvées restent valables.
+//     La graine aléatoire est tirée à chaque NewGame (Game.seed). Résultat non déterministe.
+//   - Map des impasses pleine (maxDeadPositions) : elle est vidée au lieu de cesser de mémoriser.
+//   - Plateau européen, cible 0 : 10 résolutions de 0,16 s à 4,2 s (typiquement ~1 s), contre plus de 100 s avant.
+//   - BenchmarkSolveEuropean est réactivé (plus de variable BENCH_EUROPEAN_SOLVE) ; temps très variable d'une exécution à l'autre.
+//   - Contrepartie : avec l'ordre aléatoire, la croix anglaise est bien plus lente qu'avec l'ordre fixe de la
+//     v0.1.4 (≈ 250 à 340 ms au lieu de ≈ 1,4 ms, mesure rapide sur 3 passages) et Solve n'est plus sans
+//     allocation (≈ 2000 à 3000 allocs, 17 à 27 Mo : la map grossit). NewGame passe à ≈ 2,3 µs, 4 allocs
+//     (pagode, générateur aléatoire). Les mesures de référence sont à refaire avec task bench.
+
+const VERSION = "0.1.5"

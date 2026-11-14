@@ -3,23 +3,39 @@ package solitaire
 import (
 	"fmt"
 	"math/bits"
+	"math/rand/v2"
 )
 
 type Game struct {
 	startPos   Position // Start position
 	maskPos    Position // Board limit
 	endPos     Position // Target end position
-	validMoves []Move   // List of valid moves (sorted)
+	validMoves []Move   // List of valid moves (ordre mélangé à chaque tentative de recherche)
 	solution   []Position
 
 	// Positions déjà explorées sans succès (impasses), pour ne jamais les explorer deux fois.
 	// La map est allouée une seule fois (à la première recherche), puis simplement vidée
 	// par clear() à chaque nouvelle recherche : sa mémoire est conservée et réutilisée.
 	dead map[Position]struct{}
+
+	// Fonction de pagode (voir pagoda.go) : élagage des positions qui ne peuvent plus atteindre la cible.
+	pag pagoda
+
+	// Recherche à redémarrages : l'ordre des coups est mélangé à chaque tentative, avec un budget de nœuds
+	// qui croît lentement à chaque échec. seed est tirée au hasard à chaque NewGame (et conservée pour reproduire
+	// un comportement) ; rng est le générateur qui en dérive.
+	seed    [2]uint64
+	rng     *rand.Rand
+	nodes   int  // nœuds explorés pendant la tentative en cours
+	budget  int  // nombre maximal de nœuds de la tentative en cours
+	aborted bool // vrai si la tentative en cours a épuisé son budget
 }
 
+// initialBudget est le budget de nœuds de la première tentative ; il croît de 3 % à chaque redémarrage (ce qui garantit la terminaison).
+const initialBudget = 1 << 12
+
 // maxDeadPositions borne la mémoire de la map des impasses (environ 100 Mo au maximum).
-// Au-delà, les nouvelles impasses ne sont plus mémorisées : la recherche reste correcte, mais plus lente.
+// Quand elle est pleine, elle est vidée (la recherche reste correcte, mais perd ses impasses).
 const maxDeadPositions = 1 << 22
 
 // NewGame crée un jeu à partir du mask du board, de la position de départ et de la position cible.
@@ -59,11 +75,22 @@ func NewGame(maskPos Position, startPos Position, endPos Position) (Game, error)
 		endPos:     endPos,
 		validMoves: moves,
 		solution:   make([]Position, 0, maxMoves), // vide, capacité = nombre max de coups
+		seed:       [2]uint64{rand.Uint64(), rand.Uint64()}, // graine renouvelée à chaque NewGame
 	}
+	g.rng = rand.New(rand.NewPCG(g.seed[0], g.seed[1]))
 
 	// Test de parité en O(1) : évite de lancer une recherche exhaustive vouée à l'échec.
 	if err := g.VerifyRuleOfThree(); err != nil {
 		return Game{}, err
+	}
+
+	// Pagode centrée sur le barycentre de la cible (ou du mask si cible 0) : le départ doit déjà passer le seuil.
+	if err := g.initPagoda(); err != nil {
+		return Game{}, err
+	}
+	if !g.pag.ok(startPos) {
+		return Game{}, fmt.Errorf("pagode : cible inatteignable depuis le départ (poids %d < seuil %d)",
+			g.pag.value(startPos), g.pag.threshold)
 	}
 	return g, nil
 }
@@ -81,22 +108,45 @@ func (g *Game) resetDead() {
 
 // markDead mémorise une impasse (position dont toutes les branches ont échoué), dans la limite de maxDeadPositions.
 func (g *Game) markDead(p Position) {
-	if len(g.dead) < maxDeadPositions {
-		g.dead[p] = struct{}{}
+	if len(g.dead) >= maxDeadPositions {
+		clear(g.dead) // map pleine : on la vide pour repartir sur de nouvelles impasses (mémoire inchangée)
+	}
+	g.dead[p] = struct{}{}
+}
+
+// search lance le DFS donné (dfs ou dfsAnyEnd) avec redémarrages : à chaque tentative, l'ordre des coups
+// est mélangé et le nombre de nœuds est borné ; le budget croît lentement (+3 %) après chaque tentative interrompue : beaucoup de redémarrages courts valent mieux qu un budget qui double (queue lourde des temps de recherche).
+// Les impasses mémorisées restent valables d'une tentative à l'autre (elles ne sont marquées qu'après une
+// exploration complète). Une tentative qui se termine sans épuiser son budget et sans succès prouve
+// qu'il n'y a pas de solution.
+func (g *Game) search(run func(Position) bool) error {
+	g.solution = g.solution[:0]
+	g.resetDead()
+	if g.rng == nil { // Game construit sans NewGame
+		g.rng = rand.New(rand.NewPCG(g.seed[0], g.seed[1]))
+	}
+	for budget := initialBudget; ; budget += budget / 32 {
+		g.rng.Shuffle(len(g.validMoves), func(i, j int) {
+			g.validMoves[i], g.validMoves[j] = g.validMoves[j], g.validMoves[i]
+		})
+		g.nodes, g.budget, g.aborted = 0, budget, false
+		if run(g.startPos) {
+			return nil
+		}
+		g.solution = g.solution[:0]
+		if !g.aborted {
+			return fmt.Errorf("aucune solution entre la position de départ et la position cible")
+		}
 	}
 }
 
 // Solve recherche une solution pour aller de la position de départ à la position cible
-// (depth-first, avec mémorisation des impasses, sans autre élagage). Erreur si impossible.
+// (depth-first avec mémorisation des impasses, élagage par pagode, ordre des coups aléatoire
+// et redémarrages : voir search). Erreur si impossible.
 // En cas de succès, g.solution contient les positions successives après chaque coup
 // (la position de départ n'est pas incluse, la dernière est endPos).
 func (g *Game) Solve() error {
-	g.solution = g.solution[:0]
-	g.resetDead()
-	if !g.dfs(g.startPos) {
-		return fmt.Errorf("aucune solution entre la position de départ et la position cible")
-	}
-	return nil
+	return g.search(g.dfs)
 }
 
 // SolveAnyEnd est une variante de Solve : si la position cible est 0, on cherche simplement
@@ -104,12 +154,7 @@ func (g *Game) Solve() error {
 // (la cible exacte doit être atteinte). Erreur si impossible.
 // En cas de succès, g.solution contient les positions successives après chaque coup.
 func (g *Game) SolveAnyEnd() error {
-	g.solution = g.solution[:0]
-	g.resetDead()
-	if !g.dfsAnyEnd(g.startPos) {
-		return fmt.Errorf("aucune solution entre la position de départ et la position cible")
-	}
-	return nil
+	return g.search(g.dfsAnyEnd)
 }
 
 // dfsAnyEnd : comme dfs, mais avec endPos == 0 le but est d'atteindre un seul pion.
@@ -117,6 +162,18 @@ func (g *Game) dfsAnyEnd(curr Position) bool {
 
 	if curr == g.endPos || (g.endPos == 0 && bits.OnesCount64(uint64(curr)) == 1) {
 		return true
+	}
+
+	// Budget de nœuds épuisé : on abandonne cette tentative (rien n'est marqué comme impasse).
+	g.nodes++
+	if g.nodes > g.budget {
+		g.aborted = true
+		return false
+	}
+
+	// Pagode : la position ne peut plus atteindre la cible, inutile d'aller plus loin.
+	if !g.pag.ok(curr) {
+		return false
 	}
 
 	// Impasse déjà rencontrée par un autre chemin : inutile de la réexplorer.
@@ -134,6 +191,9 @@ func (g *Game) dfsAnyEnd(curr Position) bool {
 			return true
 		}
 		g.solution = g.solution[:len(g.solution)-1] // backtrack
+		if g.aborted {
+			return false // budget épuisé plus bas : exploration incomplète, ne rien mémoriser
+		}
 	}
 
 	g.markDead(curr) // toutes les branches ont échoué : on mémorise l'impasse
@@ -147,6 +207,18 @@ func (g *Game) dfs(curr Position) bool {
 
 	if curr == g.endPos {
 		return true
+	}
+
+	// Budget de nœuds épuisé : on abandonne cette tentative (rien n'est marqué comme impasse).
+	g.nodes++
+	if g.nodes > g.budget {
+		g.aborted = true
+		return false
+	}
+
+	// Pagode : la position ne peut plus atteindre la cible, inutile d'aller plus loin.
+	if !g.pag.ok(curr) {
+		return false
 	}
 
 	// Impasse déjà rencontrée par un autre chemin : inutile de la réexplorer.
@@ -164,6 +236,9 @@ func (g *Game) dfs(curr Position) bool {
 			return true
 		}
 		g.solution = g.solution[:len(g.solution)-1] // backtrack
+		if g.aborted {
+			return false // budget épuisé plus bas : exploration incomplète, ne rien mémoriser
+		}
 	}
 
 	g.markDead(curr) // toutes les branches ont échoué : on mémorise l'impasse
